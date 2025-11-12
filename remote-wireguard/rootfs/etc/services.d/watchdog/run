@@ -1,0 +1,77 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant Third Party Add-on: WireGuard Client
+# Watchdog that pings the remote gateway and restarts WireGuard if unreachable.
+# ==============================================================================
+
+set -o pipefail
+
+INTERFACE="wg0"
+DEFAULT_TARGET="10.8.0.1"
+DEFAULT_INTERVAL="30"
+
+normalize_bool() {
+    local value="${1:-true}"
+    value="${value,,}"
+    case "${value}" in
+        1 | true | yes | on) echo "true" ;;
+        *) echo "false" ;;
+    esac
+}
+
+get_config_value() {
+    local key="${1}"
+    local default_value="${2}"
+    local value="${default_value}"
+    if bashio::config.has_value "${key}"; then
+        value="$(bashio::config "${key}")"
+    fi
+    printf '%s' "${value}"
+}
+
+WATCHDOG_ENABLED="$(normalize_bool "$(get_config_value "monitor_enabled" "true")")"
+if [[ "${WATCHDOG_ENABLED}" != "true" ]]; then
+    bashio::log.info "WireGuard-watchdog is uitgeschakeld via de configuratie."
+    exec tail -f /dev/null
+fi
+
+TARGET="$(get_config_value "monitor_target" "${DEFAULT_TARGET}")"
+TARGET="$(echo "${TARGET}" | xargs)"
+if [[ -z "${TARGET}" ]]; then
+    TARGET="${DEFAULT_TARGET}"
+fi
+
+INTERVAL="$(get_config_value "monitor_interval" "${DEFAULT_INTERVAL}")"
+if ! [[ "${INTERVAL}" =~ ^[0-9]+$ ]] || [[ "${INTERVAL}" -lt 5 ]]; then
+    bashio::log.warning "monitor_interval ongeldig (${INTERVAL}); standaard ${DEFAULT_INTERVAL}s wordt gebruikt."
+    INTERVAL="${DEFAULT_INTERVAL}"
+fi
+
+bashio::log.info "WireGuard-watchdog gestart (doel ${TARGET}, interval ${INTERVAL}s)."
+
+wait_before_next() {
+    sleep "${INTERVAL}"
+}
+
+cycle_interface() {
+    bashio::log.warning "Watchdog: ${TARGET} reageert niet; WireGuard-interface ${INTERFACE} wordt herstart."
+    if ! wg-quick down "${INTERFACE}" >/dev/null 2>&1; then
+        bashio::log.warning "Watchdog: kon ${INTERFACE} niet uitschakelen (mogelijk al uitgeschakeld)."
+    fi
+    sleep 2
+    if wg-quick up "${INTERFACE}"; then
+        bashio::log.info "Watchdog: ${INTERFACE} succesvol opnieuw verbonden."
+    else
+        bashio::log.error "Watchdog: opnieuw verbinden mislukt; probeer opnieuw na ${INTERVAL}s."
+    fi
+}
+
+while true; do
+    if ping -c 1 -W 2 "${TARGET}" >/dev/null 2>&1; then
+        wait_before_next
+        continue
+    fi
+
+    cycle_interface
+    wait_before_next
+done
