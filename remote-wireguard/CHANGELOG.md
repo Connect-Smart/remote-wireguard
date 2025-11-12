@@ -1,3 +1,7 @@
+## 1.2.2
+
+- Watchdog herstart nu eerst de `wireguard_client` s6-service; alleen wanneer dat faalt wordt teruggevallen op `wg-quick` zodat een volledige tunnel-reset wordt afgedwongen.
+
 ## 1.2.1
 
 - WireGuard-watchdog gebruikt nu dezelfde userspace-implementatie als de hoofdservice, zodat een herstart ook daadwerkelijk de tunnel opnieuw kan opbouwen.

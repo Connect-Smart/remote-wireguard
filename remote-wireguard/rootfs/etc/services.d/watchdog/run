@@ -9,6 +9,7 @@ set -o pipefail
 INTERFACE="wg0"
 DEFAULT_TARGET="10.8.0.1"
 DEFAULT_INTERVAL="30"
+WIREGUARD_SERVICE="/run/service/wireguard_client"
 export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1
 
 normalize_bool() {
@@ -55,7 +56,16 @@ wait_before_next() {
 }
 
 cycle_interface() {
-    bashio::log.warning "Watchdog: ${TARGET} reageert niet; WireGuard-interface ${INTERFACE} wordt herstart."
+    bashio::log.warning "Watchdog: ${TARGET} reageert niet; WireGuard-service wordt herstart."
+    if [[ -S "${WIREGUARD_SERVICE}/supervise/ok" ]]; then
+        if s6-svc -r "${WIREGUARD_SERVICE}"; then
+            bashio::log.info "Watchdog: wireguard_client-service herstart."
+            return
+        else
+            bashio::log.warning "Watchdog: s6-svc herstart mislukt; probeer directe wg-quick herstart."
+        fi
+    fi
+
     if ! wg-quick down "${INTERFACE}" >/dev/null 2>&1; then
         bashio::log.warning "Watchdog: kon ${INTERFACE} niet uitschakelen (mogelijk al uitgeschakeld)."
     fi
