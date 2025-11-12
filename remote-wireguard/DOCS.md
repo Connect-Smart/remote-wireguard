@@ -33,6 +33,7 @@ Deze add-on is gebouwd rondom [Remote Portal](https://github.com/Connect-Smart/r
 - Verifieer na de eerste start in het logboek dat de juiste clientnaam en externe URL worden gemeld.
 - Wil je een token intrekken? Roteer het token in Remote Portal en werk het nieuwe token bij in de add-on.
 - Wanneer `verify_ssl` op `false` staat, worden certificaten niet gecontroleerd. Gebruik dit alleen tijdens testen of met een vertrouwde portal.
+- Om verbindingen ook na een serverherstart actief te houden, forceert de add-on `PersistentKeepalive = 25` voor elke WireGuard-peer.
 
 ## License
 

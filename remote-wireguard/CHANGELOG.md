@@ -1,3 +1,7 @@
+## 1.1.3
+
+- Voegt automatisch `PersistentKeepalive = 25` toe aan de WireGuard-peerconfiguratie zodat de client na een serverherstart vanzelf opnieuw verbindt.
+
 ## 1.1.0
 
 - Ondersteuning voor Remote Portal installatietokens toegevoegd.

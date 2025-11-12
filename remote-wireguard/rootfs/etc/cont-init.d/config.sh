@@ -18,6 +18,7 @@ WIREGUARD_CONFIG=""
 CLIENT_NAME=""
 CLIENT_EXTERNAL_URL=""
 LAN_ROUTES=""
+PERSISTENT_KEEPALIVE="25"
 
 normalize_boolean() {
     local input="${1:-true}"
@@ -140,6 +141,43 @@ fetch_remote_config() {
     LAN_ROUTES=$(echo "${response}" | jq -r '(.lan_cidrs // []) | join(", ")')
 }
 
+ensure_persistent_keepalive() {
+    local keepalive_value="${1:-25}"
+    local keepalive_line="PersistentKeepalive = ${keepalive_value}"
+    local output=""
+    local in_peer="false"
+    local has_keepalive="false"
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+        if [[ "${line}" =~ ^[[:space:]]*\[Peer\][[:space:]]*$ ]]; then
+            if [[ "${in_peer}" == "true" && "${has_keepalive}" == "false" ]]; then
+                output+="${keepalive_line}"$'\n'
+            fi
+            in_peer="true"
+            has_keepalive="false"
+        elif [[ "${line}" =~ ^[[:space:]]*\[.*\][[:space:]]*$ ]]; then
+            if [[ "${in_peer}" == "true" && "${has_keepalive}" == "false" ]]; then
+                output+="${keepalive_line}"$'\n'
+            fi
+            in_peer="false"
+            has_keepalive="false"
+        elif [[ "${in_peer}" == "true" && "${line}" =~ ^[[:space:]]*PersistentKeepalive[[:space:]]*= ]]; then
+            has_keepalive="true"
+        fi
+
+        output+="${line}"$'\n'
+    done < <(printf '%s' "${WIREGUARD_CONFIG}")
+
+    if [[ "${in_peer}" == "true" && "${has_keepalive}" == "false" ]]; then
+        output+="${keepalive_line}"$'\n'
+    fi
+
+    if [[ -n "${output}" && "${output}" != "${WIREGUARD_CONFIG}" ]]; then
+        bashio::log.info "PersistentKeepalive=${keepalive_value} toegepast op WireGuard-peer(s)."
+    fi
+
+    WIREGUARD_CONFIG="${output:-${WIREGUARD_CONFIG}}"
+}
+
 write_config() {
     mkdir -p "${CONFIG_DIR}"
     printf '%s\n' "${WIREGUARD_CONFIG}" > "${TEMP_FILE}"
@@ -166,6 +204,7 @@ load_settings_file
 load_addon_options
 ensure_inputs
 fetch_remote_config
+ensure_persistent_keepalive "${PERSISTENT_KEEPALIVE}"
 write_config
 persist_settings
 
