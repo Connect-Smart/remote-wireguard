@@ -9,6 +9,7 @@ set -o pipefail
 INTERFACE="wg0"
 DEFAULT_TARGET="10.8.0.1"
 DEFAULT_INTERVAL="30"
+export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1
 
 normalize_bool() {
     local value="${1:-true}"
