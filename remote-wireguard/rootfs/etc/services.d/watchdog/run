@@ -9,6 +9,7 @@ set -o pipefail
 INTERFACE="wg0"
 DEFAULT_TARGET="10.8.0.1"
 DEFAULT_INTERVAL="30"
+COOLDOWN_AFTER_RESTART="10"
 WIREGUARD_SERVICE="/run/service/wireguard_client"
 export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1
 
@@ -51,6 +52,20 @@ fi
 
 bashio::log.info "WireGuard-watchdog gestart (doel ${TARGET}, interval ${INTERVAL}s)."
 
+ping_target() {
+    local count="${1:-1}"
+    local success="false"
+    local attempt
+    for ((attempt = 1; attempt <= count; attempt++)); do
+        if ping -I "${INTERFACE}" -c 1 -W 2 "${TARGET}" >/dev/null 2>&1; then
+            success="true"
+            break
+        fi
+        sleep 1
+    done
+    [[ "${success}" == "true" ]]
+}
+
 wait_before_next() {
     sleep "${INTERVAL}"
 }
@@ -78,11 +93,13 @@ cycle_interface() {
 }
 
 while true; do
-    if ping -c 1 -W 2 "${TARGET}" >/dev/null 2>&1; then
+    if ping_target 1; then
         wait_before_next
         continue
     fi
 
     cycle_interface
+    sleep "${COOLDOWN_AFTER_RESTART}"
+    ping_target 3 >/dev/null 2>&1
     wait_before_next
 done

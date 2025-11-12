@@ -1,3 +1,7 @@
+## 1.2.3
+
+- Watchdog stuurt nu pings via `wg0`, voert direct na een herstart meerdere probes uit en wacht kort voordat de volgende controle plaatsvindt zodat de tunnel opnieuw verkeer kan verzenden.
+
 ## 1.2.2
 
 - Watchdog herstart nu eerst de `wireguard_client` s6-service; alleen wanneer dat faalt wordt teruggevallen op `wg-quick` zodat een volledige tunnel-reset wordt afgedwongen.

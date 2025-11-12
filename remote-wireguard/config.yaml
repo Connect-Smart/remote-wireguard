@@ -1,6 +1,6 @@
 ---
 name: Connect-Smart WG Client
-version: 1.2.2
+version: 1.2.3
 slug: cs_wg_client
 description: Fast, modern, secure Wireguard tunnel (client)
 url: https://github.com/Connect-Smart/remote-wireguard/
