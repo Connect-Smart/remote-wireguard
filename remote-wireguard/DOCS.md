@@ -28,13 +28,24 @@ Deze add-on is gebouwd rondom [Remote Portal](https://github.com/Connect-Smart/r
 
    De configuratie wordt opgeslagen als `/etc/wireguard/wg0.conf`. Bij wijzigingen in de portal wordt het bestand automatisch bijgewerkt.
 
+### Home Assistant `configuration.yaml`
+
+Voeg het WireGuard-gatewayadres toe aan de trusted proxies zodat Home Assistant verkeer via de tunnel vertrouwt:
+
+```yaml
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.8.0.1
+```
+
 ### Tips
 
 - Verifieer na de eerste start in het logboek dat de juiste clientnaam en externe URL worden gemeld.
 - Wil je een token intrekken? Roteer het token in Remote Portal en werk het nieuwe token bij in de add-on.
 - Wanneer `verify_ssl` op `false` staat, worden certificaten niet gecontroleerd. Gebruik dit alleen tijdens testen of met een vertrouwde portal.
 - Om verbindingen ook na een serverherstart actief te houden, forceert de add-on `PersistentKeepalive = 25` voor elke WireGuard-peer.
-- De watchdog pingt standaard `10.8.0.1` via `wg0`, geeft de tunnel een korte rustperiode en doet extra probes na een herstart. Pas dit aan via `monitor_enabled`, `monitor_target` of `monitor_interval`.
+- De watchdog pingt standaard `10.8.0.1` via `wg0`. Als het doel onbereikbaar is, wordt de WireGuard-config opnieuw opgehaald bij de portal en live toegepast zonder de interface te herstarten. Pas dit aan via `monitor_enabled`, `monitor_target` of `monitor_interval`.
 
 ## License
 

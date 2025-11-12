@@ -1,3 +1,8 @@
+## 1.3.0
+
+- Watchdog haalt nu bij connectiviteitsverlies de WireGuard-configuratie opnieuw op bij de portal en past wijzigingen live toe via `wg syncconf`, zonder de interface te herstarten.
+- Documentatie uitgewerkt voor de benodigde `trusted_proxies`-instelling in Home Assistant.
+
 ## 1.2.3
 
 - Watchdog stuurt nu pings via `wg0`, voert direct na een herstart meerdere probes uit en wacht kort voordat de volgende controle plaatsvindt zodat de tunnel opnieuw verkeer kan verzenden.
