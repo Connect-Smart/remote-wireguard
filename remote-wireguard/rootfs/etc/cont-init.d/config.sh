@@ -1,15 +1,16 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
 # Home Assistant Third Party Add-on: WireGuard Client
-# Haalt een WireGuard-configuratie op uit Remote Portal en schrijft deze naar wg0.conf.
+# Haalt een WireGuard-configuratie op uit Remote Portal en schrijft deze naar een add-on specifieke interface.
 # ==============================================================================
 
 set -o pipefail
 
+INTERFACE="cswg0"
 SETTINGS_PATH="/data/settings.json"
 CONFIG_DIR="/etc/wireguard"
-CONFIG_FILE="${CONFIG_DIR}/wg0.conf"
-TEMP_FILE="${CONFIG_DIR}/wg0.new.conf"
+CONFIG_FILE="${CONFIG_DIR}/${INTERFACE}.conf"
+TEMP_FILE="${CONFIG_DIR}/${INTERFACE}.new.conf"
 
 PORTAL_URL=""
 ENROLLMENT_TOKEN=""

@@ -1,3 +1,13 @@
+## 1.3.6
+
+- WireGuard-interface hernoemd naar `cswg0` met bijbehorend configuratiebestand zodat bestaande `wg0`-configuraties op het systeem niet worden overschreven.
+- Documentatie bijgewerkt om de nieuwe bestandsnaam en interface duidelijk te maken.
+
+## 1.3.5
+
+- Watchdog telt nu mislukte pings; na 5 opeenvolgende fouten stopt de add-on zichzelf zodat de Home Assistant Supervisor automatisch een herstart afhandelt.
+- Documentatie verduidelijkt dit gedrag.
+
 ## 1.3.4
 
 - `monitor_target` en `monitor_interval` zitten nu onder *Ongebruikte optionele configuratieopties tonen* zodat standaardgebruikers ze niet zien, maar ze wel eenvoudig bereikbaar blijven.
@@ -24,7 +34,7 @@
 
 ## 1.2.3
 
-- Watchdog stuurt nu pings via `wg0`, voert direct na een herstart meerdere probes uit en wacht kort voordat de volgende controle plaatsvindt zodat de tunnel opnieuw verkeer kan verzenden.
+- Watchdog stuurt nu pings via de WireGuard-interface, voert direct na een herstart meerdere probes uit en wacht kort voordat de volgende controle plaatsvindt zodat de tunnel opnieuw verkeer kan verzenden.
 
 ## 1.2.2
 

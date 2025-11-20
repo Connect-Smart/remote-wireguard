@@ -25,7 +25,7 @@ Deze add-on is gebouwd rondom [Remote Portal](https://github.com/Connect-Smart/r
    GET <portal_url>/api/public/clients/<enrollment_token>/wireguard-config
    ```
 
-   De configuratie wordt opgeslagen als `/etc/wireguard/wg0.conf`. Bij wijzigingen in de portal wordt het bestand automatisch bijgewerkt.
+   De configuratie wordt opgeslagen als `/etc/wireguard/cswg0.conf`. Bij wijzigingen in de portal wordt het bestand automatisch bijgewerkt.
 
 ### Home Assistant `configuration.yaml`
 
@@ -44,7 +44,7 @@ http:
 - Wil je een token intrekken? Roteer het token in Remote Portal en werk het nieuwe token bij in de add-on.
 - Wanneer `verify_ssl` op `false` staat, worden certificaten niet gecontroleerd. Gebruik dit alleen tijdens testen of met een vertrouwde portal.
 - Om verbindingen ook na een serverherstart actief te houden, forceert de add-on `PersistentKeepalive = 25` voor elke WireGuard-peer.
-- De watchdog pingt standaard `10.8.0.1` via `wg0`. Als het doel onbereikbaar is, wordt de WireGuard-config opnieuw opgehaald bij de portal en live toegepast zonder de interface te herstarten. Geavanceerde gebruikers kunnen doel en interval aanpassen via `Ongebruikte optionele configuratieopties tonen` en daar de verborgen opties `monitor_target` of `monitor_interval` invullen.
+- De watchdog pingt standaard `10.8.0.1` via de add-on interface `cswg0`. Als het doel onbereikbaar is, wordt de WireGuard-config opnieuw opgehaald bij de portal en live toegepast zonder de interface te herstarten. Na 5 mislukte checks op rij stopt de add-on bewust zodat de Home Assistant Supervisor hem opnieuw kan starten. Geavanceerde gebruikers kunnen doel en interval aanpassen via `Ongebruikte optionele configuratieopties tonen` en daar de verborgen opties `monitor_target` of `monitor_interval` invullen.
 
 ## License
 

@@ -8,7 +8,7 @@ declare interface
 bashio::log.info "Stop WireGuard Client container..."
 
 # Get the interface
-interface="wg0"
+interface="cswg0"
 
 # Run the WireGuard
 exec wg-quick down "${interface}"

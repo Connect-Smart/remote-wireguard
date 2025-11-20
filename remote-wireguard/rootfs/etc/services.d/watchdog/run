@@ -6,13 +6,13 @@
 
 set -o pipefail
 
-INTERFACE="wg0"
+INTERFACE="cswg0"
 DEFAULT_TARGET="10.8.0.1"
 DEFAULT_INTERVAL="30"
 SETTINGS_PATH="/data/settings.json"
 CONFIG_DIR="/etc/wireguard"
-CONFIG_FILE="${CONFIG_DIR}/wg0.conf"
-TEMP_FILE="${CONFIG_DIR}/wg0.watchdog.conf"
+CONFIG_FILE="${CONFIG_DIR}/${INTERFACE}.conf"
+TEMP_FILE="${CONFIG_DIR}/${INTERFACE}.watchdog.conf"
 export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1
 
 PORTAL_URL=""
@@ -208,6 +208,8 @@ fi
 
 bashio::log.info "WireGuard-watchdog gestart (doel ${TARGET}, interval ${INTERVAL}s)."
 
+FAILURE_COUNT=0
+
 ping_target() {
     local count="${1:-1}"
     local success="false"
@@ -235,10 +237,16 @@ handle_connectivity_loss() {
 
 while true; do
     if ping_target 1; then
+        FAILURE_COUNT=0
         wait_before_next
         continue
     fi
 
+    FAILURE_COUNT=$((FAILURE_COUNT + 1))
     handle_connectivity_loss
+    if [[ "${FAILURE_COUNT}" -ge 5 ]]; then
+        bashio::log.error "Watchdog: ${FAILURE_COUNT} opeenvolgende pingpogingen mislukt; add-on wordt gestopt zodat Supervisor opnieuw kan starten."
+        exit 1
+    fi
     wait_before_next
 done
