@@ -1,3 +1,7 @@
+## 1.3.4
+
+- `monitor_target` en `monitor_interval` zitten nu onder *Ongebruikte optionele configuratieopties tonen* zodat standaardgebruikers ze niet zien, maar ze wel eenvoudig bereikbaar blijven.
+
 ## 1.3.3
 
 - `monitor_target` en `monitor_interval` zijn nu verborgen opties zodat de standaardwaarden intact blijven terwijl geavanceerde gebruikers ze nog via `options.json` kunnen tweaken.
