@@ -1,3 +1,8 @@
+## 1.3.1
+
+- Beschrijving en metadata geüpdatet zodat de add-on duidelijk als Connect-Smart Remote Portal-client wordt aangeduid.
+- Nieuwe Connect-Smart logo- en icoonbestanden opgenomen voor de Home Assistant store.
+
 ## 1.3.0
 
 - Watchdog haalt nu bij connectiviteitsverlies de WireGuard-configuratie opnieuw op bij de portal en past wijzigingen live toe via `wg syncconf`, zonder de interface te herstarten.
