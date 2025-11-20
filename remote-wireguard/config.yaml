@@ -1,6 +1,6 @@
 ---
 name: Connect-Smart WG Client
-version: 1.3.8
+version: 1.3.9
 slug: cs_wg_client
 description: Connect-Smart WireGuard client for Remote Portal
 url: https://github.com/Connect-Smart/remote-wireguard/

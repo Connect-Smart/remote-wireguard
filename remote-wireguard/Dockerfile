@@ -43,6 +43,7 @@ RUN chmod +x /etc/services.d/api/run
 RUN chmod +x /etc/services.d/status/run
 RUN chmod +x /etc/cont-finish.d/00-stop
 RUN chmod +x /etc/cont-init.d/config.sh
+RUN chmod +x /etc/cont-init.d/10-log-level.sh
 
 
 # Build arguments
