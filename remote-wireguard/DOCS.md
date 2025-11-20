@@ -19,6 +19,7 @@ Deze add-on is gebouwd rondom [Remote Portal](https://github.com/Connect-Smart/r
    - `portal_url`: Basis-URL van de portal (bijv. `https://vpn.remote.connect-smart.nl`).
    - `enrollment_token`: Het installatietoken dat je uit de portal kopieerde.
    - `verify_ssl`: Laat standaard op `true`. Zet op `false` wanneer je (tijdelijk) met een zelfondertekend certificaat test.
+   - `log_level`: Stel het gewenste logniveau in (`trace`, `debug`, `info`, `notice`, `warning`, `error`, `critical`).
 3. Start of herstart de add-on. Bij elke start wordt de WireGuard-configuratie opgehaald via:
 
    ```

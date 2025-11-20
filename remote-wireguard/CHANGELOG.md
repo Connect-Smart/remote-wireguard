@@ -1,3 +1,12 @@
+## 1.3.8
+
+- Toegevoegde `log_level`-optie waarmee het add-on logniveau rechtstreeks via de configuratie kan worden ingesteld.
+- Statusservice wacht nu net zo lang als `monitor_interval` voordat hij `wg show cswg0` uitvoert, zodat logging gesynchroniseerd blijft met de watchdog.
+
+## 1.3.7
+
+- Statusservice vraagt nu expliciet `wg show cswg0` op zodat de logging alleen de add-oninterface toont en geen andere WireGuard-configuraties uitleest.
+
 ## 1.3.6
 
 - WireGuard-interface hernoemd naar `cswg0` met bijbehorend configuratiebestand zodat bestaande `wg0`-configuraties op het systeem niet worden overschreven.
