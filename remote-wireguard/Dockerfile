@@ -57,13 +57,13 @@ ARG BUILD_VERSION
 # Labels
 LABEL \
     io.hass.name="WireGuard Client" \
-    io.hass.description="Fast, modern, secure VPN tunnel (Client)" \
+    io.hass.description="Connect-Smart WireGuard client for Remote Portal" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
     io.hass.version=${BUILD_VERSION} \
     maintainer="Jos Rothman <jos@connect-smart.nl>" \
     org.opencontainers.image.title="WireGuard Client" \
-    org.opencontainers.image.description="Fast, modern, secure VPN tunnel" \
+    org.opencontainers.image.description="Connect-Smart WireGuard client for Remote Portal" \
     org.opencontainers.image.vendor="Home Assistant Connect-Smart WG Add-on" \
     org.opencontainers.image.authors="Jos Rothman <jos@connect-smart.nl>" \
     org.opencontainers.image.licenses="MIT" \

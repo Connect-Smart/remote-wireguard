@@ -1,4 +1,4 @@
-# Home Assistant Add-on: WireGuard 
+# Home Assistant Add-on: Connect-Smart WireGuard Client
 
 [WireGuard®][wireguard] is an extremely simple yet fast and modern VPN that
 utilizes state-of-the-art cryptography. It aims to be faster, simpler, leaner,
@@ -8,8 +8,7 @@ It intends to be considerably more performant than OpenVPN. WireGuard is
 designed as a general-purpose VPN for running on embedded interfaces and
 supercomputers alike, fit for many different circumstances.
 
-Initially released for the Linux kernel, it is now cross-platform
-including via an Connect-Smart add-on!
+Initially released for the Linux kernel, it is now cross-platform and the Connect-Smart build wraps it in a branded add-on that talks directly to the Connect-Smart Remote Portal.
 
 ## Configuratie
 
