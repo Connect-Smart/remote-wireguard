@@ -44,7 +44,7 @@ http:
 - Wil je een token intrekken? Roteer het token in Remote Portal en werk het nieuwe token bij in de add-on.
 - Wanneer `verify_ssl` op `false` staat, worden certificaten niet gecontroleerd. Gebruik dit alleen tijdens testen of met een vertrouwde portal.
 - Om verbindingen ook na een serverherstart actief te houden, forceert de add-on `PersistentKeepalive = 25` voor elke WireGuard-peer.
-- De watchdog pingt standaard `10.8.0.1` via `wg0`. Als het doel onbereikbaar is, wordt de WireGuard-config opnieuw opgehaald bij de portal en live toegepast zonder de interface te herstarten. Pas dit aan via `monitor_enabled`, `monitor_target` of `monitor_interval`.
+- De watchdog pingt standaard `10.8.0.1` via `wg0`. Als het doel onbereikbaar is, wordt de WireGuard-config opnieuw opgehaald bij de portal en live toegepast zonder de interface te herstarten. Geavanceerde gebruikers kunnen doel en interval aanpassen via de verborgen opties `monitor_target` of `monitor_interval`.
 
 ## License
 

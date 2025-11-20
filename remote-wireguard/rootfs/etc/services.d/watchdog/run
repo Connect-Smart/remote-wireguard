@@ -194,12 +194,6 @@ refresh_wireguard_config() {
     return 0
 }
 
-WATCHDOG_ENABLED="$(normalize_bool "$(get_config_value "monitor_enabled" "true")")"
-if [[ "${WATCHDOG_ENABLED}" != "true" ]]; then
-    bashio::log.info "WireGuard-watchdog is uitgeschakeld via de configuratie."
-    exec tail -f /dev/null
-fi
-
 TARGET="$(get_config_value "monitor_target" "${DEFAULT_TARGET}")"
 TARGET="$(echo "${TARGET}" | xargs)"
 if [[ -z "${TARGET}" ]]; then

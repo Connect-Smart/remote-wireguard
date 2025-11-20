@@ -1,3 +1,13 @@
+## 1.3.3
+
+- `monitor_target` en `monitor_interval` zijn nu verborgen opties zodat de standaardwaarden intact blijven terwijl geavanceerde gebruikers ze nog via `options.json` kunnen tweaken.
+- Documentatie verduidelijkt hoe deze instellingen nu worden beheerd.
+
+## 1.3.2
+
+- Watchdog staat nu altijd aan; de optie `monitor_enabled` is verwijderd om onbedoeld uitschakelen te voorkomen.
+- Configuratie bevat alleen nog het doel en interval, documentatie bijgewerkt om dit te weerspiegelen.
+
 ## 1.3.1
 
 - Beschrijving en metadata geüpdatet zodat de add-on duidelijk als Connect-Smart Remote Portal-client wordt aangeduid.
