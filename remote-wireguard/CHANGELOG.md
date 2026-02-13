@@ -1,3 +1,26 @@
+## 1.4.12
+
+- `enrollment_token` is nu verplicht in het schema zodat de UI het veld afdwingt.
+- Standaardwaarden teruggezet voor `portal_url` (`https://remote.connect-smart.nl`) en `verify_ssl`.
+
+## 1.4.11
+
+- Vertaalteksten voor `portal_url` gecorrigeerd naar de juiste standaard-URL `https://remote.connect-smart.nl`.
+- Standaardwaarden voor `portal_url` en `verify_ssl` verwijderd uit `options` zodat ze optioneel blijven.
+
+## 1.4.1
+
+- Standaard `portal_url` ingesteld op `https://remote.connect-smart.nl`.
+- Vertalingen toegevoegd (NL/EN) voor alle configuratievelden.
+
+## 1.4.0
+
+- `log_level` verwijderd uit de standaard `options`, maar blijft beschikbaar als optionele schema-instelling.
+
+## 1.3.9
+
+- `10-log-level.sh` krijgt uitvoerrechten; Dockerfile zet deze permissies zodat log-level configuratie wordt toegepast.
+
 ## 1.3.8
 
 - Toegevoegde `log_level`-optie waarmee het add-on logniveau rechtstreeks via de configuratie kan worden ingesteld.

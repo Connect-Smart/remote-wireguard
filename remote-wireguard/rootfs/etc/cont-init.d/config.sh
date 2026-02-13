@@ -12,7 +12,7 @@ CONFIG_DIR="/etc/wireguard"
 CONFIG_FILE="${CONFIG_DIR}/${INTERFACE}.conf"
 TEMP_FILE="${CONFIG_DIR}/${INTERFACE}.new.conf"
 
-PORTAL_URL=""
+PORTAL_URL="https://remote.connect-smart.nl"
 ENROLLMENT_TOKEN=""
 VERIFY_SSL="true"
 WIREGUARD_CONFIG=""
