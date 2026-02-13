@@ -2,7 +2,7 @@
 configuration:
   portal_url:
     name: "Portal URL"
-    description: "Base URL of the Remote Portal (default: https://vpn.remote.connect-smart.nl)"
+    description: "Base URL of the Remote Portal (default: https://remote.connect-smart.nl)"
   enrollment_token:
     name: "Enrollment Token"
     description: "The token you copied from the Remote Portal"
