@@ -56,18 +56,10 @@ PORTAL_URL="${PORTAL_URL%/}"
 bashio::log.info "HA Status: ophalen via Supervisor API..."
 
 # Haal status op via Supervisor API
-CORE_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-    "${SUPERVISOR_API}/core/info" 2>/dev/null || echo '{"data":{}}')
-
-OS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-    "${SUPERVISOR_API}/os/info" 2>/dev/null || echo '{"data":{}}')
-
-SUPERVISOR_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-    "${SUPERVISOR_API}/supervisor/info" 2>/dev/null || echo '{"data":{}}')
-
-# Haal addons/apps info op
-ADDONS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-    "${SUPERVISOR_API}/addons" 2>/dev/null || echo '{"data":{"addons":[]}}')
+CORE_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/core/info" 2>/dev/null || echo '{"data":{}}')
+OS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/os/info" 2>/dev/null || echo '{"data":{}}')
+SUPERVISOR_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/supervisor/info" 2>/dev/null || echo '{"data":{}}')
+ADDONS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/addons" 2>/dev/null || echo '{"data":{"addons":[]}}')
 
 # Debug logging
 bashio::log.debug "Core info: ${CORE_INFO}"
