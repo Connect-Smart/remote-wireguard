@@ -44,6 +44,7 @@ RUN chmod +x /etc/services.d/status/run
 RUN chmod +x /etc/services.d/ha-status/run
 RUN chmod +x /etc/services.d/ha-status/log/run
 RUN chmod +x /etc/services.d/ha-status/check_ha_status.sh
+RUN chmod +x /etc/services.d/ha-status/check_ha_status_api.sh
 RUN chmod +x /etc/cont-finish.d/00-stop
 RUN chmod +x /etc/cont-init.d/config.sh
 RUN chmod +x /etc/cont-init.d/10-log-level.sh

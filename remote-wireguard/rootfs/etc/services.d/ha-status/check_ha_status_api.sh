@@ -1,21 +1,24 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
 # Home Assistant Third Party Add-on: WireGuard Client
-# Haalt Home Assistant status op en stuurt deze naar de Remote Portal
+# Haalt Home Assistant status op via Supervisor API en stuurt naar Remote Portal
+# Alternatief voor ha CLI command als die niet beschikbaar is
 # ==============================================================================
 
 set -o pipefail
 
-# Configuratie ophalen met ondersteuning voor advanced sectie
+# Supervisor API endpoint
+SUPERVISOR_API="http://supervisor"
+SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
+
+# Configuratie ophalen
 get_config_value() {
     local key="${1}"
     local default="${2}"
     local value="${default}"
 
-    # Probeer eerst de advanced sectie
     if bashio::config.has_value "advanced.${key}"; then
         value=$(bashio::config "advanced.${key}")
-    # Anders probeer gewoon de key
     elif bashio::config.has_value "${key}"; then
         value=$(bashio::config "${key}")
     fi
@@ -38,35 +41,41 @@ else
     CURL_OPTS=""
 fi
 
-# Controleer of we een enrollment token hebben
+# Controleer enrollment token
 if [[ -z "${ENROLLMENT_TOKEN}" ]]; then
-    bashio::log.warning "HA Status: geen enrollment_token beschikbaar, kan status niet versturen."
+    bashio::log.warning "HA Status: geen enrollment_token beschikbaar"
     exit 0
 fi
 
-# Zorg dat portal URL juist is
+# Portal URL normaliseren
 if [[ "${PORTAL_URL}" != http://* && "${PORTAL_URL}" != https://* ]]; then
     PORTAL_URL="https://${PORTAL_URL}"
 fi
 PORTAL_URL="${PORTAL_URL%/}"
 
-bashio::log.info "HA Status: ophalen Home Assistant status..."
+bashio::log.info "HA Status: ophalen via Supervisor API..."
 
-# Haal alle status informatie op
-CORE_INFO=$(ha core info --raw-json 2>/dev/null || echo '{}')
-OS_INFO=$(ha os info --raw-json 2>/dev/null || echo '{}')
-SUPERVISOR_INFO=$(ha supervisor info --raw-json 2>/dev/null || echo '{}')
+# Haal status op via Supervisor API
+CORE_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    "${SUPERVISOR_API}/core/info" 2>/dev/null || echo '{"data":{}}')
 
-# Gebruik 'ha apps' (nieuwere versie) of fallback naar 'ha addons' (oudere versie)
-ADDONS_INFO=$(ha apps --raw-json 2>/dev/null || ha addons --raw-json 2>/dev/null || echo '{"data":{"addons":[],"apps":[]}}')
+OS_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    "${SUPERVISOR_API}/os/info" 2>/dev/null || echo '{"data":{}}')
 
-# Debug logging (alleen als log level debug of lager)
+SUPERVISOR_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    "${SUPERVISOR_API}/supervisor/info" 2>/dev/null || echo '{"data":{}}')
+
+# Probeer eerst /store (nieuwe API) en dan /addons (oude API)
+STORE_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    "${SUPERVISOR_API}/store" 2>/dev/null || echo '{"data":{"addons":[]}}')
+
+# Debug logging
 bashio::log.debug "Core info: ${CORE_INFO}"
 bashio::log.debug "OS info: ${OS_INFO}"
 bashio::log.debug "Supervisor info: ${SUPERVISOR_INFO}"
-bashio::log.debug "Addons/Apps info: ${ADDONS_INFO}"
+bashio::log.debug "Store info: ${STORE_INFO}"
 
-# Parse updates (zonder -r voor booleans om JSON te behouden)
+# Parse updates (zonder -r voor booleans)
 CORE_UPDATE=$(echo "${CORE_INFO}" | jq '.data.update_available // false')
 CORE_VERSION=$(echo "${CORE_INFO}" | jq -r '.data.version // "unknown"')
 CORE_LATEST=$(echo "${CORE_INFO}" | jq -r '.data.version_latest // "unknown"')
@@ -79,9 +88,9 @@ SUPERVISOR_UPDATE=$(echo "${SUPERVISOR_INFO}" | jq '.data.update_available // fa
 SUPERVISOR_VERSION=$(echo "${SUPERVISOR_INFO}" | jq -r '.data.version // "unknown"')
 SUPERVISOR_LATEST=$(echo "${SUPERVISOR_INFO}" | jq -r '.data.version_latest // "unknown"')
 
-# Parse add-on updates (support both 'apps' and 'addons' for compatibility)
-ADDON_UPDATES=$(echo "${ADDONS_INFO}" | jq '[
-    (.data.apps // .data.addons // [])[]
+# Parse add-on updates
+ADDON_UPDATES=$(echo "${STORE_INFO}" | jq '[
+    .data.addons[]?
     | select(.update_available == true)
     | {
         name: .name,
