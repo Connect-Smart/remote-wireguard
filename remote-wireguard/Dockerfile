@@ -42,6 +42,7 @@ RUN chmod +x /etc/services.d/wireguard_client/run
 RUN chmod +x /etc/services.d/api/run
 RUN chmod +x /etc/services.d/status/run
 RUN chmod +x /etc/services.d/ha-status/run
+RUN chmod +x /etc/services.d/ha-status/log/run
 RUN chmod +x /etc/services.d/ha-status/check_ha_status.sh
 RUN chmod +x /etc/cont-finish.d/00-stop
 RUN chmod +x /etc/cont-init.d/config.sh
