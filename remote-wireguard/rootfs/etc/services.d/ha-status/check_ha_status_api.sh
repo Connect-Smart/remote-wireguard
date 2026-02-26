@@ -56,24 +56,24 @@ PORTAL_URL="${PORTAL_URL%/}"
 bashio::log.info "HA Status: ophalen via Supervisor API..."
 
 # Haal status op via Supervisor API
-CORE_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+CORE_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
     "${SUPERVISOR_API}/core/info" 2>/dev/null || echo '{"data":{}}')
 
-OS_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+OS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
     "${SUPERVISOR_API}/os/info" 2>/dev/null || echo '{"data":{}}')
 
-SUPERVISOR_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+SUPERVISOR_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
     "${SUPERVISOR_API}/supervisor/info" 2>/dev/null || echo '{"data":{}}')
 
-# Probeer eerst /store (nieuwe API) en dan /addons (oude API)
-STORE_INFO=$(curl -sSL -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-    "${SUPERVISOR_API}/store" 2>/dev/null || echo '{"data":{"addons":[]}}')
+# Haal addons/apps info op
+ADDONS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    "${SUPERVISOR_API}/addons" 2>/dev/null || echo '{"data":{"addons":[]}}')
 
 # Debug logging
 bashio::log.debug "Core info: ${CORE_INFO}"
 bashio::log.debug "OS info: ${OS_INFO}"
 bashio::log.debug "Supervisor info: ${SUPERVISOR_INFO}"
-bashio::log.debug "Store info: ${STORE_INFO}"
+bashio::log.debug "Addons info: ${ADDONS_INFO}"
 
 # Parse updates (zonder -r voor booleans)
 CORE_UPDATE=$(echo "${CORE_INFO}" | jq '.data.update_available // false')
@@ -89,7 +89,7 @@ SUPERVISOR_VERSION=$(echo "${SUPERVISOR_INFO}" | jq -r '.data.version // "unknow
 SUPERVISOR_LATEST=$(echo "${SUPERVISOR_INFO}" | jq -r '.data.version_latest // "unknown"')
 
 # Parse add-on updates
-ADDON_UPDATES=$(echo "${STORE_INFO}" | jq '[
+ADDON_UPDATES=$(echo "${ADDONS_INFO}" | jq '[
     .data.addons[]?
     | select(.update_available == true)
     | {
