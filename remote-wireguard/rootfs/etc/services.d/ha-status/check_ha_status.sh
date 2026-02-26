@@ -115,15 +115,36 @@ PAYLOAD=$(jq -n \
     timestamp: now
   }')
 
+# Valideer payload
+if [[ -z "${PAYLOAD}" || "${PAYLOAD}" == "null" ]]; then
+    bashio::log.error "HA Status: payload is leeg, skip verzenden"
+    exit 1
+fi
+
+# Valideer JSON
+if ! echo "${PAYLOAD}" | jq empty 2>/dev/null; then
+    bashio::log.error "HA Status: payload is geen geldige JSON"
+    bashio::log.debug "Invalid payload: ${PAYLOAD}"
+    exit 1
+fi
+
 bashio::log.debug "HA Status payload: ${PAYLOAD}"
 bashio::log.info "HA Status: versturen naar portal..."
 
-# Stuur naar portal
-RESPONSE=$(curl -s -w "\n%{http_code}" ${CURL_OPTS} -X POST \
-  "${PORTAL_URL}/api/ha-status/push" \
-  -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "${PAYLOAD}")
+# Stuur naar portal met correcte curl opties
+if [ "${VERIFY_SSL,,}" = "false" ]; then
+    RESPONSE=$(curl -s -w "\n%{http_code}" -k -X POST \
+      "${PORTAL_URL}/api/ha-status/push" \
+      -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d "${PAYLOAD}")
+else
+    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+      "${PORTAL_URL}/api/ha-status/push" \
+      -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d "${PAYLOAD}")
+fi
 
 HTTP_CODE=$(echo "${RESPONSE}" | tail -n1)
 RESPONSE_BODY=$(echo "${RESPONSE}" | head -n-1)
