@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant Third Party Add-on: WireGuard Client
+# HA Status service logging
+# ==============================================================================
+
+# shellcheck disable=SC2191
+declare -a log_level_args=(--log-level "${__BASHIO_LOG_LEVEL}")
+
+exec s6-log -bp -- "${log_level_args[@]}" t /var/log/ha-status

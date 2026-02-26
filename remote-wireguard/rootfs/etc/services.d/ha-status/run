@@ -1,0 +1,16 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant Third Party Add-on: WireGuard Client
+# HA Status monitoring service - runs every 5 minutes
+# ==============================================================================
+
+bashio::log.info "HA Status Monitor gestart (interval: 5 minuten)"
+
+# Wacht 60 seconden na start voordat eerste check
+sleep 60
+
+# Run check elke 5 minuten (300 seconden)
+while true; do
+    /etc/services.d/ha-status/check_ha_status.sh
+    sleep 300
+done
