@@ -134,17 +134,9 @@ bashio::log.info "HA Status: versturen naar portal..."
 
 # Stuur naar portal met correcte curl opties
 if [ "${VERIFY_SSL,,}" = "false" ]; then
-    RESPONSE=$(curl -s -w "\n%{http_code}" -k -X POST \
-      "${PORTAL_URL}/api/ha-status/push" \
-      -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d "${PAYLOAD}")
+    RESPONSE=$(curl -s -w "\n%{http_code}" -k -X POST "${PORTAL_URL}/api/ha-status/push" -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" -H "Content-Type: application/json" -d "${PAYLOAD}")
 else
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-      "${PORTAL_URL}/api/ha-status/push" \
-      -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d "${PAYLOAD}")
+    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${PORTAL_URL}/api/ha-status/push" -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" -H "Content-Type: application/json" -d "${PAYLOAD}")
 fi
 
 HTTP_CODE=$(echo "${RESPONSE}" | tail -n1)
