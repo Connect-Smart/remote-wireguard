@@ -66,7 +66,7 @@ schema:
 
 ## Stap 2: Maak een status check script
 
-Maak een nieuw bestand `check_ha_status.sh`:
+Maak een nieuw bestand `check_ha_status_api.sh`:
 
 ```bash
 #!/usr/bin/with-contenv bashio
@@ -168,7 +168,7 @@ fi
 
 Maak het script uitvoerbaar:
 ```bash
-chmod +x check_ha_status.sh
+chmod +x check_ha_status_api.sh
 ```
 
 ---
@@ -187,7 +187,7 @@ bashio::log.info "Starting HA status monitor..."
 (
   while true; do
     sleep 300  # 5 minuten
-    /check_ha_status.sh
+    /check_ha_status_api.sh
   done
 ) &
 
@@ -200,7 +200,7 @@ bashio::log.info "Starting HA status monitor..."
 
 ## Stap 4: Update je Dockerfile
 
-Zorg dat het check_ha_status.sh script wordt gekopieerd:
+Zorg dat het check_ha_status_api.sh script wordt gekopieerd:
 
 ```dockerfile
 FROM homeassistant/amd64-base:latest
@@ -216,10 +216,10 @@ RUN apk add --no-cache \
 
 # Kopieer scripts
 COPY run.sh /
-COPY check_ha_status.sh /
+COPY check_ha_status_api.sh /
 
 # Maak uitvoerbaar
-RUN chmod +x /run.sh /check_ha_status.sh
+RUN chmod +x /run.sh /check_ha_status_api.sh
 
 CMD ["/run.sh"]
 ```
@@ -288,7 +288,7 @@ Voor je het add-on opnieuw bouwt, test eerst het script handmatig in een draaien
 docker exec -it addon_xxxx_cs_wg_client /bin/bash
 
 # Voer het script handmatig uit
-/check_ha_status.sh
+/check_ha_status_api.sh
 ```
 
 Je zou output moeten zien zoals:
