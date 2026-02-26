@@ -56,30 +56,36 @@ bashio::log.info "HA Status: ophalen Home Assistant status..."
 CORE_INFO=$(ha core info --raw-json 2>/dev/null || echo '{}')
 OS_INFO=$(ha os info --raw-json 2>/dev/null || echo '{}')
 SUPERVISOR_INFO=$(ha supervisor info --raw-json 2>/dev/null || echo '{}')
-ADDONS_INFO=$(ha addons --raw-json 2>/dev/null || echo '{"data":{"addons":[]}}')
 
-# Parse updates
-CORE_UPDATE=$(echo "${CORE_INFO}" | jq -r '.data.update_available // false')
+# Gebruik 'ha apps' (nieuwere versie) of fallback naar 'ha addons' (oudere versie)
+ADDONS_INFO=$(ha apps --raw-json 2>/dev/null || ha addons --raw-json 2>/dev/null || echo '{"data":{"addons":[],"apps":[]}}')
+
+# Parse updates (zonder -r voor booleans om JSON te behouden)
+CORE_UPDATE=$(echo "${CORE_INFO}" | jq '.data.update_available // false')
 CORE_VERSION=$(echo "${CORE_INFO}" | jq -r '.data.version // "unknown"')
 CORE_LATEST=$(echo "${CORE_INFO}" | jq -r '.data.version_latest // "unknown"')
 
-OS_UPDATE=$(echo "${OS_INFO}" | jq -r '.data.update_available // false')
+OS_UPDATE=$(echo "${OS_INFO}" | jq '.data.update_available // false')
 OS_VERSION=$(echo "${OS_INFO}" | jq -r '.data.version // "unknown"')
 OS_LATEST=$(echo "${OS_INFO}" | jq -r '.data.version_latest // "unknown"')
 
-SUPERVISOR_UPDATE=$(echo "${SUPERVISOR_INFO}" | jq -r '.data.update_available // false')
+SUPERVISOR_UPDATE=$(echo "${SUPERVISOR_INFO}" | jq '.data.update_available // false')
 SUPERVISOR_VERSION=$(echo "${SUPERVISOR_INFO}" | jq -r '.data.version // "unknown"')
 SUPERVISOR_LATEST=$(echo "${SUPERVISOR_INFO}" | jq -r '.data.version_latest // "unknown"')
 
-# Parse add-on updates
-ADDON_UPDATES=$(echo "${ADDONS_INFO}" | jq '[.data.addons[] | select(.update_available == true) | {
-    name: .name,
-    slug: .slug,
-    current: .version,
-    latest: .version_latest,
-    installed: .installed,
-    icon: .icon
-}]')
+# Parse add-on updates (support both 'apps' and 'addons' for compatibility)
+ADDON_UPDATES=$(echo "${ADDONS_INFO}" | jq '[
+    (.data.apps // .data.addons // [])[]
+    | select(.update_available == true)
+    | {
+        name: .name,
+        slug: .slug,
+        current: .version,
+        latest: .version_latest,
+        installed: .installed,
+        icon: .icon
+      }
+]')
 
 # Bouw JSON payload
 PAYLOAD=$(jq -n \

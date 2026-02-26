@@ -92,7 +92,9 @@ bashio::log.info "Ophalen Home Assistant status..."
 CORE_INFO=$(ha core info --raw-json 2>/dev/null || echo '{}')
 OS_INFO=$(ha os info --raw-json 2>/dev/null || echo '{}')
 SUPERVISOR_INFO=$(ha supervisor info --raw-json 2>/dev/null || echo '{}')
-ADDONS_INFO=$(ha addons --raw-json 2>/dev/null || echo '{"data":{"addons":[]}}')
+
+# Gebruik 'ha apps' (nieuwere versie) of fallback naar 'ha addons' (oudere versie)
+ADDONS_INFO=$(ha apps --raw-json 2>/dev/null || ha addons --raw-json 2>/dev/null || echo '{"data":{"addons":[],"apps":[]}}')
 
 # Parse updates
 CORE_UPDATE=$(echo "$CORE_INFO" | jq -r '.data.update_available // false')
@@ -107,15 +109,20 @@ SUPERVISOR_UPDATE=$(echo "$SUPERVISOR_INFO" | jq -r '.data.update_available // f
 SUPERVISOR_VERSION=$(echo "$SUPERVISOR_INFO" | jq -r '.data.version // "unknown"')
 SUPERVISOR_LATEST=$(echo "$SUPERVISOR_INFO" | jq -r '.data.version_latest // "unknown"')
 
-# Parse add-on updates
-ADDON_UPDATES=$(echo "$ADDONS_INFO" | jq '[.data.addons[] | select(.update_available == true) | {
-    name: .name,
-    slug: .slug,
-    current: .version,
-    latest: .version_latest,
-    installed: .installed,
-    icon: .icon
-}]')
+# Parse add-on updates (support both 'apps' and 'addons' for compatibility)
+ADDON_UPDATES=$(echo "$ADDONS_INFO" | jq '
+  [
+    (.data.apps // .data.addons // [])[]
+    | select(.update_available == true)
+    | {
+        name: .name,
+        slug: .slug,
+        current: .version,
+        latest: .version_latest,
+        installed: .installed,
+        icon: .icon
+      }
+  ]')
 
 # Bouw JSON payload
 PAYLOAD=$(jq -n \
@@ -360,6 +367,18 @@ Als het succesvol is, krijg je een response:
 ### HTTP 401/403 van portal
 - Controleer of enrollment_token correct is
 - Check portal logs voor authenticatie errors
+
+### Lege addons array (0 updates terwijl er wel updates zijn)
+- **Oorzaak**: In nieuwere HA versies is `ha addons` deprecated en vervangen door `ha apps`
+- **Oplossing**: Het script probeert automatisch beide commando's
+- **Debug**: Test handmatig:
+  ```bash
+  ha apps --raw-json | jq '.data.apps[] | select(.update_available == true)'
+  ```
+- Als `ha apps` niet werkt, probeer:
+  ```bash
+  ha addons --raw-json | jq '.data.addons[] | select(.update_available == true)'
+  ```
 
 ---
 
