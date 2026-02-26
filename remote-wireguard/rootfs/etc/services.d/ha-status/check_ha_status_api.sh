@@ -60,12 +60,14 @@ CORE_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR
 OS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/os/info" 2>/dev/null || echo '{"data":{}}')
 SUPERVISOR_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/supervisor/info" 2>/dev/null || echo '{"data":{}}')
 ADDONS_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/addons" 2>/dev/null || echo '{"data":{"addons":[]}}')
+RESOLUTION_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/resolution/info" 2>/dev/null || echo '{"data":{"issues":[],"suggestions":[]}}')
 
 # Debug logging
 bashio::log.debug "Core info: ${CORE_INFO}"
 bashio::log.debug "OS info: ${OS_INFO}"
 bashio::log.debug "Supervisor info: ${SUPERVISOR_INFO}"
 bashio::log.debug "Addons info: ${ADDONS_INFO}"
+bashio::log.debug "Resolution info: ${RESOLUTION_INFO}"
 
 # Parse updates (zonder -r voor booleans)
 CORE_UPDATE=$(echo "${CORE_INFO}" | jq '.data.update_available // false')
@@ -94,6 +96,29 @@ ADDON_UPDATES=$(echo "${ADDONS_INFO}" | jq '[
       }
 ]')
 
+# Parse repairs/issues
+ISSUES=$(echo "${RESOLUTION_INFO}" | jq '[
+    .data.issues[]?
+    | {
+        uuid: .uuid,
+        type: .type,
+        context: .context,
+        reference: .reference
+      }
+]')
+
+SUGGESTIONS=$(echo "${RESOLUTION_INFO}" | jq '[
+    .data.suggestions[]?
+    | {
+        uuid: .uuid,
+        type: .type,
+        context: .context,
+        reference: .reference
+      }
+]')
+
+UNHEALTHY=$(echo "${RESOLUTION_INFO}" | jq '.data.unhealthy // []')
+
 # Bouw JSON payload
 PAYLOAD=$(jq -n \
   --argjson core_update "${CORE_UPDATE}" \
@@ -106,12 +131,20 @@ PAYLOAD=$(jq -n \
   --arg supervisor_version "${SUPERVISOR_VERSION}" \
   --arg supervisor_latest "${SUPERVISOR_LATEST}" \
   --argjson addon_updates "${ADDON_UPDATES}" \
+  --argjson issues "${ISSUES}" \
+  --argjson suggestions "${SUGGESTIONS}" \
+  --argjson unhealthy "${UNHEALTHY}" \
   '{
     updates: {
       core: (if $core_update then {current: $core_version, latest: $core_latest} else null end),
       os: (if $os_update then {current: $os_version, latest: $os_latest} else null end),
       supervisor: (if $supervisor_update then {current: $supervisor_version, latest: $supervisor_latest} else null end),
       addons: $addon_updates
+    },
+    repairs: {
+      issues: $issues,
+      suggestions: $suggestions,
+      unhealthy: $unhealthy
     },
     timestamp: now
   }')
