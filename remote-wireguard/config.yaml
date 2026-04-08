@@ -22,16 +22,24 @@ devices:
 map:
   - type: config   # toegang tot /data/options.json
     read_only: false
+  - type: backup
+    read_only: false
 options:
   enrollment_token: ""
   advanced:
     portal_url: "https://remote.connect-smart.nl"
     verify_ssl: true
+    backup_enabled: true
+    backup_interval_hours: 24
+    backup_retain: 3
 schema:
   enrollment_token: str
   advanced:
     portal_url: str?
     verify_ssl: bool?
+    backup_enabled: bool?
+    backup_interval_hours: int?
+    backup_retain: int?
   log_level: list(trace|debug|info|notice|warning|error|critical)?
   monitor_target: str?
   monitor_interval: int?
