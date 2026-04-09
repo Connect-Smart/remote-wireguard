@@ -391,6 +391,92 @@ Als het succesvol is, krijg je een response:
 
 ---
 
+---
+
+## HA Backup naar Remote Portal (Google Storage)
+
+### Hoe het werkt
+
+Het add-on maakt periodiek een volledige Home Assistant backup aan en uploadt deze via de WireGuard tunnel naar de Remote Portal server (10.8.0.1). De portal stuurt de backup vervolgens door naar Google Storage.
+
+```
+[Home Assistant Add-on]
+        |
+        | 1. POST /supervisor/backups/new/full
+        v
+[Supervisor API]  →  /backup/<slug>.tar
+        |
+        | 2. curl multipart POST
+        v
+[Portal server: http://10.8.0.1/api/backup/upload]
+        |
+        | 3. upload
+        v
+[Google Cloud Storage]
+```
+
+### Configuratie-opties
+
+Voeg de volgende opties toe aan de add-on configuratie:
+
+```yaml
+advanced:
+  backup_enabled: true          # Backup aan/uit (standaard: true)
+  backup_interval_hours: 24     # Interval in uren (standaard: 24)
+  backup_retain: 3              # Aantal lokale backups bewaren (standaard: 3)
+```
+
+### Bestanden
+
+| Bestand | Beschrijving |
+|---|---|
+| `services.d/ha-backup/run` | Service loop, start 5 min na boot |
+| `services.d/ha-backup/create_backup.sh` | Maakt backup en uploadt naar portal |
+| `services.d/ha-backup/log/run` | Logging service |
+
+### Upload formaat
+
+Het script uploadt via multipart form-data:
+
+```
+POST http://10.8.0.1/api/backup/upload
+Authorization: Bearer <enrollment_token>
+Content-Type: multipart/form-data
+
+backup=<bestand.tar>
+slug=<backup-slug>
+```
+
+### Lokale opruiming
+
+Na een succesvolle upload worden oude lokale backups met de naam `remote-portal-backup` automatisch opgeruimd. Alleen de laatste N backups (instelbaar via `backup_retain`) worden bewaard.
+
+### Testen
+
+Trigger handmatig een backup via de add-on container:
+
+```bash
+docker exec -it addon_xxxx_cs_wg_client /bin/bash
+/etc/services.d/ha-backup/create_backup.sh
+```
+
+### Vereiste portal endpoint
+
+De portal server moet het volgende endpoint implementeren:
+
+```
+POST /api/backup/upload
+Authorization: Bearer <enrollment_token>
+Body: multipart/form-data  (velden: backup, slug)
+```
+
+Response bij succes:
+```json
+{ "status": "ok" }
+```
+
+---
+
 ## Changelog
 
 ### Portal Side (Remote Portal)
@@ -398,10 +484,14 @@ Als het succesvol is, krijg je een response:
 - ✅ Authenticatie via enrollment_token of ha_token
 - ✅ Add-on updates worden automatisch getoond in HA Status modal
 - ✅ Support voor Core, OS, Supervisor en Add-on updates
+- ✅ Nieuw endpoint: `POST /api/backup/upload` vereist voor backup ontvangst + Google Storage upload
 
-### WireGuard Add-on v1.5.0
+### WireGuard Add-on v1.5.10
 - ✨ Supervisor API toegang toegevoegd
 - ✨ Add-on updates monitoring
 - ✨ Periodieke status push naar portal (elke 5 minuten)
+- ✨ Automatische HA backup naar Remote Portal / Google Storage
+- ✨ Instelbaar backup interval, retentie en aan/uit schakelaar
+- ✅ `backup` map gemount voor toegang tot backup bestanden
 - 🔒 Hassio role manager voor `ha` commando toegang
-- 📊 Volledige HA status reporting (Core, OS, Supervisor, Add-ons)
+- 📊 Volledige HA status reporting (Core, OS, Supervisor, Add-ons, Repairs)
