@@ -55,13 +55,17 @@ load_settings_file() {
 }
 
 load_addon_options() {
-    if bashio::config.has_value "portal_url"; then
+    if bashio::config.has_value "advanced.portal_url"; then
+        PORTAL_URL=$(bashio::config "advanced.portal_url")
+    elif bashio::config.has_value "portal_url"; then
         PORTAL_URL=$(bashio::config "portal_url")
     fi
     if bashio::config.has_value "enrollment_token"; then
         ENROLLMENT_TOKEN=$(bashio::config "enrollment_token")
     fi
-    if bashio::config.has_value "verify_ssl"; then
+    if bashio::config.has_value "advanced.verify_ssl"; then
+        VERIFY_SSL=$(bashio::config "advanced.verify_ssl")
+    elif bashio::config.has_value "verify_ssl"; then
         VERIFY_SSL=$(bashio::config "verify_ssl")
     fi
 }
