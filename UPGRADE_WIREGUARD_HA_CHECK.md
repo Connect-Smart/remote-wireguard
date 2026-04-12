@@ -439,7 +439,7 @@ advanced:
 Het script uploadt via multipart form-data:
 
 ```
-POST http://10.8.0.1/api/backup/upload
+POST {portal_url}/api/backup/upload
 Authorization: Bearer <enrollment_token>
 Content-Type: multipart/form-data
 

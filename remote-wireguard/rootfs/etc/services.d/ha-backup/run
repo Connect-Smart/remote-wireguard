@@ -44,7 +44,7 @@ SCRIPT="/etc/services.d/ha-backup/create_backup.sh"
 sleep 300
 
 while true; do
-    ${SCRIPT}
+    ${SCRIPT} || bashio::log.warning "HA Backup: script afgesloten met fout, volgende poging over ${INTERVAL_HOURS} uur"
     bashio::log.info "HA Backup: volgende backup over ${INTERVAL_HOURS} uur"
     sleep "${INTERVAL_SECONDS}"
 done

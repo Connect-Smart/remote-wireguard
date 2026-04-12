@@ -92,14 +92,14 @@ bashio::log.info "Backup: bestandsgrootte ${BACKUP_SIZE}, uploaden naar 10.8.0.1
 # Upload naar portal via enrollment token
 if [ "${VERIFY_SSL,,}" = "false" ]; then
     UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" -k \
-        -X POST "http://10.8.0.1/api/backup/upload" \
+        -X POST "${PORTAL_URL}/api/backup/upload" \
         -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
         -F "backup=@${BACKUP_FILE};type=application/x-tar" \
         -F "slug=${BACKUP_SLUG}" \
         --max-time 600)
 else
     UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" \
-        -X POST "http://10.8.0.1/api/backup/upload" \
+        -X POST "${PORTAL_URL}/api/backup/upload" \
         -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
         -F "backup=@${BACKUP_FILE};type=application/x-tar" \
         -F "slug=${BACKUP_SLUG}" \
