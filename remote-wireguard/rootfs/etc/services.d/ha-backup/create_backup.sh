@@ -87,7 +87,7 @@ if [[ ! -f "${BACKUP_FILE}" ]]; then
 fi
 
 BACKUP_SIZE=$(du -sh "${BACKUP_FILE}" | cut -f1)
-bashio::log.info "Backup: bestandsgrootte ${BACKUP_SIZE}, uploaden naar 10.8.0.1..."
+bashio::log.info "Backup: bestandsgrootte ${BACKUP_SIZE}, uploaden naar ${PORTAL_URL}..."
 
 # Upload naar portal via enrollment token
 if [ "${VERIFY_SSL,,}" = "false" ]; then
