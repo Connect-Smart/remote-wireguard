@@ -52,6 +52,30 @@ else
     CURL_OPTS=""
 fi
 
+send_notification() {
+    local level="${1}"   # error | warning | info
+    local message="${2}"
+
+    local payload
+    payload=$(jq -n \
+        --arg level "${level}" \
+        --arg message "${message}" \
+        --arg source "ha-backup" \
+        '{level: $level, message: $message, source: $source, timestamp: now}')
+
+    if [ "${VERIFY_SSL,,}" = "false" ]; then
+        curl -s -k -X POST "${PORTAL_URL}/api/notifications/push" \
+            -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}" > /dev/null 2>&1
+    else
+        curl -s -X POST "${PORTAL_URL}/api/notifications/push" \
+            -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}" > /dev/null 2>&1
+    fi
+}
+
 bashio::log.info "Backup: aanmaken van volledige Home Assistant backup..."
 
 # Start backup via Supervisor API
@@ -64,6 +88,7 @@ BACKUP_RESPONSE=$(curl -s \
 
 if [[ -z "${BACKUP_RESPONSE}" ]]; then
     bashio::log.error "Backup: geen reactie van Supervisor API"
+    send_notification "error" "Backup mislukt: geen reactie van Supervisor API"
     exit 1
 fi
 
@@ -73,6 +98,7 @@ BACKUP_RESULT=$(echo "${BACKUP_RESPONSE}" | jq -r '.result // empty')
 if [[ "${BACKUP_RESULT}" != "ok" || -z "${BACKUP_SLUG}" ]]; then
     error_msg=$(echo "${BACKUP_RESPONSE}" | jq -r '.message // "onbekende fout"')
     bashio::log.error "Backup: aanmaken mislukt: ${error_msg}"
+    send_notification "error" "Backup mislukt: ${error_msg}"
     exit 1
 fi
 
@@ -111,9 +137,11 @@ RESPONSE_BODY=$(echo "${UPLOAD_RESPONSE}" | head -n-1)
 
 if [ "${HTTP_CODE}" = "200" ] || [ "${HTTP_CODE}" = "201" ]; then
     bashio::log.info "Backup: succesvol geüpload naar portal (${BACKUP_SLUG})"
+    send_notification "info" "Backup succesvol geüpload naar portal (slug: ${BACKUP_SLUG})"
 else
     bashio::log.warning "Backup: upload mislukt: HTTP ${HTTP_CODE}"
     bashio::log.debug "Backup upload response: ${RESPONSE_BODY}"
+    send_notification "error" "Backup upload mislukt: HTTP ${HTTP_CODE} (slug: ${BACKUP_SLUG})"
     exit 1
 fi
 
