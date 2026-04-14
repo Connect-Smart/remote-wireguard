@@ -39,6 +39,20 @@ http:
     - 10.8.0.1
 ```
 
+### Automatische backup
+
+De add-on kan periodiek een volledige Home Assistant backup aanmaken en uploaden naar de Remote Portal, die de backup doorstuurt naar Google Storage.
+
+Standaard is de backup ingeschakeld met een interval van 24 uur. Dit is instelbaar via de geavanceerde configuratie:
+
+| Optie | Standaard | Beschrijving |
+|---|---|---|
+| `advanced.backup_enabled` | `true` | Backup aan/uit zetten |
+| `advanced.backup_interval_hours` | `24` | Interval tussen backups in uren |
+| `advanced.backup_retain` | `3` | Aantal lokale backups bewaren |
+
+Bij onvoldoende schijfruimte of een mislukte upload verstuurt de add-on automatisch een foutmelding naar de portal.
+
 ### Tips
 
 - Verifieer na de eerste start in het logboek dat de juiste clientnaam en externe URL worden gemeld.

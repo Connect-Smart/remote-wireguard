@@ -1,3 +1,23 @@
+## 1.5.15
+
+- Foutmeldingen bij mislukte backup worden nu als notificatie naar de portal gestuurd via `POST /api/notifications/push` (levels: `error`, `warning`, `info`).
+- Succesvolle uploads sturen ook een bevestigingsnotificatie naar de portal.
+
+## 1.5.11
+
+- Backup upload gebruikt nu de ingestelde `portal_url` in plaats van het hardgecodeerde `10.8.0.1`.
+- Logregel gecorrigeerd zodat de daadwerkelijke upload-URL wordt getoond.
+
+## 1.5.10
+
+- Automatische HA backup toegevoegd: maakt periodiek een volledige backup aan via de Supervisor API en uploadt deze naar de portal (`POST /api/backup/upload`).
+- Portal stuurt de backup door naar Google Storage.
+- Nieuwe configuratie-opties: `advanced.backup_enabled`, `advanced.backup_interval_hours`, `advanced.backup_retain`.
+- `backup` map gemount zodat het add-on toegang heeft tot backup bestanden.
+- Service herstart niet meer elke 5 minuten bij een mislukte backup upload.
+- `portal_url` werd niet correct opgepikt uit `advanced.portal_url`; dit is gecorrigeerd in `config.sh`.
+- HA status monitor rapporteert nu ook repairs/issues en unhealthy-meldingen vanuit de Supervisor resolution API.
+
 ## 1.4.12
 
 - `enrollment_token` is nu verplicht in het schema zodat de UI het veld afdwingt.
