@@ -4,7 +4,7 @@
 # Configures the global log level based on add-on options.
 # ==============================================================================
 
-DEFAULT_LOG_LEVEL="info"
+DEFAULT_LOG_LEVEL="warning"
 LOG_LEVEL="${DEFAULT_LOG_LEVEL}"
 
 if bashio::config.has_value "log_level"; then
