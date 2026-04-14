@@ -135,6 +135,7 @@ fi
 HTTP_CODE=$(echo "${UPLOAD_RESPONSE}" | tail -n1)
 RESPONSE_BODY=$(echo "${UPLOAD_RESPONSE}" | head -n-1)
 
+UPLOAD_FAILED=false
 if [ "${HTTP_CODE}" = "200" ] || [ "${HTTP_CODE}" = "201" ]; then
     bashio::log.info "Backup: succesvol geüpload naar portal (${BACKUP_SLUG})"
     send_notification "info" "Backup succesvol geüpload naar portal (slug: ${BACKUP_SLUG})"
@@ -142,10 +143,10 @@ else
     bashio::log.warning "Backup: upload mislukt: HTTP ${HTTP_CODE}"
     bashio::log.debug "Backup upload response: ${RESPONSE_BODY}"
     send_notification "error" "Backup upload mislukt: HTTP ${HTTP_CODE} (slug: ${BACKUP_SLUG})"
-    exit 1
+    UPLOAD_FAILED=true
 fi
 
-# Oude lokale backups opruimen (bewaar de laatste N backups van de portal)
+# Oude lokale backups altijd opruimen (ook bij mislukte upload), bewaar de laatste N
 bashio::log.info "Backup: opruimen oude backups (bewaar laatste ${BACKUP_RETAIN})..."
 
 BACKUPS_RESPONSE=$(curl -s \
@@ -167,3 +168,7 @@ if [[ -n "${BACKUP_SLUGS}" ]]; then
 fi
 
 bashio::log.info "Backup: klaar"
+
+if [[ "${UPLOAD_FAILED}" == "true" ]]; then
+    exit 1
+fi
