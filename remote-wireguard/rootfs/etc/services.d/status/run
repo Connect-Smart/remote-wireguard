@@ -19,8 +19,12 @@ get_monitor_interval() {
 }
 
 MONITOR_INTERVAL="$(get_monitor_interval)"
-sleep "${MONITOR_INTERVAL}"
-bashio::log.info "Requesting current status from WireGuard Client..."
-if [[ "${__BASHIO_LOG_LEVEL}" -ge "${__BASHIO_LOG_LEVEL_INFO}" ]]; then
-    exec wg show "${INTERFACE}"
-fi
+
+while true; do
+    sleep "${MONITOR_INTERVAL}"
+    if wg show "${INTERFACE}" | grep -q "latest handshake"; then
+        bashio::log.info "WireGuard ${INTERFACE}: verbonden"
+    else
+        bashio::log.warning "WireGuard ${INTERFACE}: geen actieve verbinding"
+    fi
+done
