@@ -28,6 +28,7 @@ PORTAL_URL=$(get_config_value "portal_url" "https://remote.connect-smart.nl")
 ENROLLMENT_TOKEN=$(bashio::config "enrollment_token")
 VERIFY_SSL=$(get_config_value "verify_ssl" "true")
 BACKUP_RETAIN=$(get_config_value "backup_retain" "3")
+ADDON_VERSION=$(bashio::addon.version 2>/dev/null || echo "")
 
 # Trim whitespace
 PORTAL_URL=$(echo "${PORTAL_URL}" | xargs)
@@ -67,11 +68,13 @@ send_notification() {
         curl -s -k -X POST "${PORTAL_URL}/api/notifications/push" \
             -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
             -H "Content-Type: application/json" \
+            -H "X-Addon-Version: ${ADDON_VERSION}" \
             -d "${payload}" > /dev/null 2>&1
     else
         curl -s -X POST "${PORTAL_URL}/api/notifications/push" \
             -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
             -H "Content-Type: application/json" \
+            -H "X-Addon-Version: ${ADDON_VERSION}" \
             -d "${payload}" > /dev/null 2>&1
     fi
 }
@@ -120,6 +123,7 @@ if [ "${VERIFY_SSL,,}" = "false" ]; then
     UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" -k \
         -X POST "${PORTAL_URL}/api/backup/upload" \
         -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
+        -H "X-Addon-Version: ${ADDON_VERSION}" \
         -F "backup=@${BACKUP_FILE};type=application/x-tar" \
         -F "slug=${BACKUP_SLUG}" \
         --max-time 600)
@@ -127,6 +131,7 @@ else
     UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" \
         -X POST "${PORTAL_URL}/api/backup/upload" \
         -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
+        -H "X-Addon-Version: ${ADDON_VERSION}" \
         -F "backup=@${BACKUP_FILE};type=application/x-tar" \
         -F "slug=${BACKUP_SLUG}" \
         --max-time 600)

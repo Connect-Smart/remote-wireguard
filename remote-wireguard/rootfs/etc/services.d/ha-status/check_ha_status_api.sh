@@ -29,6 +29,7 @@ get_config_value() {
 PORTAL_URL=$(get_config_value "portal_url" "https://remote.connect-smart.nl")
 ENROLLMENT_TOKEN=$(bashio::config "enrollment_token")
 VERIFY_SSL=$(get_config_value "verify_ssl" "true")
+ADDON_VERSION=$(bashio::addon.version 2>/dev/null || echo "")
 
 # Trim whitespace
 PORTAL_URL=$(echo "${PORTAL_URL}" | xargs)
@@ -167,9 +168,9 @@ bashio::log.info "HA Status: versturen naar portal..."
 
 # Stuur naar portal met correcte curl opties
 if [ "${VERIFY_SSL,,}" = "false" ]; then
-    RESPONSE=$(curl -s -w "\n%{http_code}" -k -X POST "${PORTAL_URL}/api/ha-status/push" -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" -H "Content-Type: application/json" -d "${PAYLOAD}")
+    RESPONSE=$(curl -s -w "\n%{http_code}" -k -X POST "${PORTAL_URL}/api/ha-status/push" -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" -H "Content-Type: application/json" -H "X-Addon-Version: ${ADDON_VERSION}" -d "${PAYLOAD}")
 else
-    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${PORTAL_URL}/api/ha-status/push" -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" -H "Content-Type: application/json" -d "${PAYLOAD}")
+    RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${PORTAL_URL}/api/ha-status/push" -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" -H "Content-Type: application/json" -H "X-Addon-Version: ${ADDON_VERSION}" -d "${PAYLOAD}")
 fi
 
 HTTP_CODE=$(echo "${RESPONSE}" | tail -n1)
