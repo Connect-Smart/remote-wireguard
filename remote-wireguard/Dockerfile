@@ -17,7 +17,6 @@ RUN apk add --no-cache \
       jq \
       curl \
       libqrencode-tools \
-      openresolv \
       wireguard-tools
 
 # # Build wireguard-go from source
