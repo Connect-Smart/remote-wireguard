@@ -23,36 +23,14 @@ PERSISTENT_KEEPALIVE="25"
 MANUAL_WIREGUARD_CONFIG=""
 
 ensure_dns() {
-    local hostname
-    hostname=$(echo "${PORTAL_URL}" | sed 's|https\?://||' | cut -d'/' -f1 | cut -d':' -f1)
-    if [[ -z "${hostname}" ]]; then
-        return
-    fi
+    local supervisor_dns="172.30.32.3"
 
-    # Al resolveerbaar via systeem-DNS, niets te doen
-    if nslookup "${hostname}" > /dev/null 2>&1; then
-        return
-    fi
-
-    bashio::log.warning "DNS: '${hostname}' niet resolveerbaar via systeem-DNS, fallback DNS proberen..."
-
-    # Probeer achtereenvolgens: HA Supervisor DNS, Cloudflare, Google
-    local ip
-    for dns_server in 172.30.32.3 1.1.1.1 8.8.8.8; do
-        ip=$(nslookup "${hostname}" "${dns_server}" 2>/dev/null | awk '/^Address: /{print $2}' | head -n1)
-        if [[ -n "${ip}" ]]; then
-            bashio::log.info "DNS: '${hostname}' resolved via ${dns_server}"
-            break
-        fi
-    done
-
-    if [[ -n "${ip}" ]]; then
-        bashio::log.info "DNS: '${hostname}' resolved naar ${ip} via fallback DNS, toevoegen aan /etc/hosts"
-        # Verwijder eventueel oude entry en voeg nieuwe toe
-        sed -i "/${hostname}/d" /etc/hosts 2>/dev/null || true
-        echo "${ip} ${hostname}" >> /etc/hosts
-    else
-        bashio::log.warning "DNS: '${hostname}' niet resolveerbaar via fallback DNS, controleer netwerkverbinding"
+    # Voeg Supervisor DNS toe als die nog niet in resolv.conf staat
+    if ! grep -q "${supervisor_dns}" /etc/resolv.conf 2>/dev/null; then
+        bashio::log.info "DNS: HA Supervisor DNS (${supervisor_dns}) toevoegen aan resolv.conf"
+        local current_resolv
+        current_resolv=$(cat /etc/resolv.conf 2>/dev/null || true)
+        printf 'nameserver %s\nsearch local.hass.io\n%s\n' "${supervisor_dns}" "${current_resolv}" > /etc/resolv.conf
     fi
 }
 
