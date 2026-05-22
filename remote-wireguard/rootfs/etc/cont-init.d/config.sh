@@ -20,6 +20,7 @@ CLIENT_NAME=""
 CLIENT_EXTERNAL_URL=""
 LAN_ROUTES=""
 PERSISTENT_KEEPALIVE="25"
+MANUAL_WIREGUARD_CONFIG=""
 
 normalize_boolean() {
     local input="${1:-true}"
@@ -68,6 +69,9 @@ load_addon_options() {
     elif bashio::config.has_value "verify_ssl"; then
         VERIFY_SSL=$(bashio::config "verify_ssl")
     fi
+    if bashio::config.has_value "advanced.manual_wireguard_config"; then
+        MANUAL_WIREGUARD_CONFIG=$(bashio::config "advanced.manual_wireguard_config")
+    fi
 }
 
 persist_settings() {
@@ -94,11 +98,16 @@ ensure_inputs() {
     ENROLLMENT_TOKEN=$(echo "${ENROLLMENT_TOKEN}" | xargs)
     VERIFY_SSL=$(normalize_boolean "${VERIFY_SSL}")
 
+    # Bij handmatige config zijn portal_url en enrollment_token optioneel
+    if [[ -n "${MANUAL_WIREGUARD_CONFIG}" ]]; then
+        return
+    fi
+
     if [[ -z "${PORTAL_URL}" ]]; then
-        bashio::exit.nok "portal_url ontbreekt. Stel deze in via de add-on configuratie."
+        bashio::exit.nok "portal_url ontbreekt. Stel deze in via de add-on configuratie of vul 'manual_wireguard_config' in."
     fi
     if [[ -z "${ENROLLMENT_TOKEN}" ]]; then
-        bashio::exit.nok "enrollment_token ontbreekt. Stel deze in via de add-on configuratie."
+        bashio::exit.nok "enrollment_token ontbreekt. Stel deze in via de add-on configuratie of vul 'manual_wireguard_config' in."
     fi
     if [[ "${PORTAL_URL}" != http://* && "${PORTAL_URL}" != https://* ]]; then
         bashio::log.info "Geen protocol gevonden in portal_url; 'https://' wordt toegevoegd."
@@ -208,7 +217,14 @@ write_config() {
 load_settings_file
 load_addon_options
 ensure_inputs
-fetch_remote_config
+
+if [[ -n "${MANUAL_WIREGUARD_CONFIG}" ]]; then
+    bashio::log.info "Handmatige WireGuard-configuratie gebruiken (portal wordt niet bevraagd)."
+    WIREGUARD_CONFIG="${MANUAL_WIREGUARD_CONFIG}"
+else
+    fetch_remote_config
+fi
+
 ensure_persistent_keepalive "${PERSISTENT_KEEPALIVE}"
 write_config
 persist_settings

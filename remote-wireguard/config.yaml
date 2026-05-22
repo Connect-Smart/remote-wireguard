@@ -1,6 +1,6 @@
 ---
 name: Connect-Smart WG Client
-version: 1.5.23
+version: 1.5.24
 slug: cs_wg_client
 description: Connect-Smart WireGuard client for Remote Portal
 url: https://github.com/Connect-Smart/remote-wireguard/
@@ -32,14 +32,16 @@ options:
     backup_enabled: true
     backup_interval_hours: 24
     backup_retain: 3
+    manual_wireguard_config: ""
 schema:
-  enrollment_token: str
+  enrollment_token: str?
   advanced:
     portal_url: str?
     verify_ssl: bool?
     backup_enabled: bool?
     backup_interval_hours: int?
     backup_retain: int?
+    manual_wireguard_config: str?
   log_level: list(trace|debug|info|notice|warning|error|critical)?
   monitor_target: str?
   monitor_interval: int?
