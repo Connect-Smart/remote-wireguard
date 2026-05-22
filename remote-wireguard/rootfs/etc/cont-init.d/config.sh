@@ -22,6 +22,27 @@ LAN_ROUTES=""
 PERSISTENT_KEEPALIVE="25"
 MANUAL_WIREGUARD_CONFIG=""
 
+ensure_dns() {
+    local hostname
+    hostname=$(echo "${PORTAL_URL}" | sed 's|https\?://||' | cut -d'/' -f1 | cut -d':' -f1)
+    if [[ -z "${hostname}" ]]; then
+        return
+    fi
+    if nslookup "${hostname}" > /dev/null 2>&1; then
+        return
+    fi
+    bashio::log.warning "DNS: '${hostname}' niet resolveerbaar via systeem-DNS, fallback naar 1.1.1.1..."
+    # Voeg Cloudflare DNS toe als eerste nameserver zonder de bestaande te verwijderen
+    local current_resolv
+    current_resolv=$(cat /etc/resolv.conf 2>/dev/null || true)
+    printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n%s\n' "${current_resolv}" > /etc/resolv.conf
+    if nslookup "${hostname}" > /dev/null 2>&1; then
+        bashio::log.info "DNS: '${hostname}' succesvol resolveerbaar via fallback DNS."
+    else
+        bashio::log.warning "DNS: '${hostname}' nog steeds niet resolveerbaar, controleer de netwerkverbinding."
+    fi
+}
+
 normalize_boolean() {
     local input="${1:-true}"
     input=$(echo "${input}" | tr '[:upper:]' '[:lower:]')
@@ -217,6 +238,7 @@ write_config() {
 load_settings_file
 load_addon_options
 ensure_inputs
+ensure_dns
 
 if [[ -n "${MANUAL_WIREGUARD_CONFIG}" ]]; then
     bashio::log.info "Handmatige WireGuard-configuratie gebruiken (portal wordt niet bevraagd)."
