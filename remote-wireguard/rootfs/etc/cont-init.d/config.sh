@@ -149,7 +149,8 @@ fetch_remote_config() {
 
     bashio::log.info "WireGuard-configuratie ophalen via: ${endpoint}"
     if ! response=$(curl "${curl_opts[@]}" "${endpoint}"); then
-        bashio::exit.nok "Ophalen van WireGuard-configuratie mislukt. Controleer portal_url en enrollment_token."
+        bashio::log.warning "Ophalen van WireGuard-configuratie mislukt."
+        return 1
     fi
 
     WIREGUARD_CONFIG=$(echo "${response}" | jq -r '.wireguard // empty')
@@ -157,9 +158,11 @@ fetch_remote_config() {
         local portal_error
         portal_error=$(echo "${response}" | jq -r '.error // empty')
         if [[ -n "${portal_error}" ]]; then
-            bashio::exit.nok "Portal gaf een fout terug: ${portal_error}"
+            bashio::log.warning "Portal gaf een fout terug: ${portal_error}"
+        else
+            bashio::log.warning "Geen geldige WireGuard-configuratie ontvangen van de portal."
         fi
-        bashio::exit.nok "Geen geldige WireGuard-configuratie ontvangen van de portal."
+        return 1
     fi
 
     CLIENT_NAME=$(echo "${response}" | jq -r '.client.name // empty')
@@ -234,12 +237,20 @@ ensure_dns
 if [[ -n "${MANUAL_WIREGUARD_CONFIG}" ]]; then
     bashio::log.info "Handmatige WireGuard-configuratie gebruiken (portal wordt niet bevraagd)."
     WIREGUARD_CONFIG="${MANUAL_WIREGUARD_CONFIG}"
+elif fetch_remote_config; then
+    bashio::log.info "WireGuard-configuratie succesvol opgehaald van portal."
 else
-    fetch_remote_config
+    if [[ -f "${CONFIG_FILE}" ]]; then
+        bashio::log.warning "Portal niet bereikbaar; bestaande configuratie wordt gebruikt."
+    else
+        bashio::exit.nok "Ophalen van WireGuard-configuratie mislukt en er is geen bestaande configuratie beschikbaar."
+    fi
 fi
 
-ensure_persistent_keepalive "${PERSISTENT_KEEPALIVE}"
-write_config
+if [[ -n "${WIREGUARD_CONFIG}" ]]; then
+    ensure_persistent_keepalive "${PERSISTENT_KEEPALIVE}"
+    write_config
+fi
 persist_settings
 
 if [[ -n "${CLIENT_NAME}" ]]; then
