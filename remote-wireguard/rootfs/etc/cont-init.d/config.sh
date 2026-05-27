@@ -147,7 +147,7 @@ fetch_remote_config() {
         curl_opts+=("--insecure")
     fi
 
-    bashio::log.info "WireGuard-configuratie ophalen van portal ${PORTAL_URL}"
+    bashio::log.info "WireGuard-configuratie ophalen via: ${endpoint}"
     if ! response=$(curl "${curl_opts[@]}" "${endpoint}"); then
         bashio::exit.nok "Ophalen van WireGuard-configuratie mislukt. Controleer portal_url en enrollment_token."
     fi
