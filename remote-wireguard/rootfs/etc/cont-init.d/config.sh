@@ -8,6 +8,7 @@ set -o pipefail
 
 INTERFACE="cswg0"
 SETTINGS_PATH="/data/settings.json"
+CACHED_CONFIG_PATH="/data/wireguard_config.conf"
 CONFIG_DIR="/etc/wireguard"
 CONFIG_FILE="${CONFIG_DIR}/${INTERFACE}.conf"
 TEMP_FILE="${CONFIG_DIR}/${INTERFACE}.new.conf"
@@ -136,20 +137,29 @@ fetch_remote_config() {
     local -a curl_opts=(
         "--silent"
         "--show-error"
-        "--fail"
         "--location"
         "--connect-timeout" "10"
         "--max-time" "30"
         "--header" "Accept: application/json"
         "--user-agent" "connect-smart-wireguard-addon/1.1"
+        "--write-out" "\n%{http_code}"
     )
     if [[ "${VERIFY_SSL}" != "true" ]]; then
         curl_opts+=("--insecure")
     fi
 
     bashio::log.info "WireGuard-configuratie ophalen via: ${endpoint}"
-    if ! response=$(curl "${curl_opts[@]}" "${endpoint}"); then
-        bashio::log.warning "Ophalen van WireGuard-configuratie mislukt."
+    local raw_response http_code
+    if ! raw_response=$(curl "${curl_opts[@]}" "${endpoint}" 2>&1); then
+        bashio::log.warning "Ophalen van WireGuard-configuratie mislukt (netwerk/verbindingsfout)."
+        return 1
+    fi
+
+    http_code=$(echo "${raw_response}" | tail -n1)
+    response=$(echo "${raw_response}" | head -n-1)
+
+    if [[ "${http_code}" != "200" && "${http_code}" != "201" ]]; then
+        bashio::log.warning "Ophalen van WireGuard-configuratie mislukt: HTTP ${http_code}."
         return 1
     fi
 
@@ -239,11 +249,14 @@ if [[ -n "${MANUAL_WIREGUARD_CONFIG}" ]]; then
     WIREGUARD_CONFIG="${MANUAL_WIREGUARD_CONFIG}"
 elif fetch_remote_config; then
     bashio::log.info "WireGuard-configuratie succesvol opgehaald van portal."
+    # Sla op in persistent cache voor gebruik bij toekomstige fouten
+    printf '%s\n' "${WIREGUARD_CONFIG}" > "${CACHED_CONFIG_PATH}"
 else
-    if [[ -f "${CONFIG_FILE}" ]]; then
-        bashio::log.warning "Portal niet bereikbaar; bestaande configuratie wordt gebruikt."
+    if [[ -f "${CACHED_CONFIG_PATH}" ]]; then
+        bashio::log.warning "Portal niet bereikbaar; gecachede configuratie uit /data/ wordt gebruikt."
+        WIREGUARD_CONFIG=$(cat "${CACHED_CONFIG_PATH}")
     else
-        bashio::exit.nok "Ophalen van WireGuard-configuratie mislukt en er is geen bestaande configuratie beschikbaar."
+        bashio::exit.nok "Ophalen van WireGuard-configuratie mislukt en er is geen gecachede configuratie beschikbaar."
     fi
 fi
 
