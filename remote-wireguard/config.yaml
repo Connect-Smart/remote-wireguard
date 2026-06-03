@@ -1,6 +1,6 @@
 ---
 name: Connect-Smart WG Client
-version: 1.5.32
+version: 1.5.33
 slug: cs_wg_client
 description: Connect-Smart WireGuard client for Remote Portal
 url: https://github.com/Connect-Smart/remote-wireguard/
@@ -10,6 +10,7 @@ arch:
   - armv7
 apparmor: true
 init: false
+host_network: true
 hassio_role: manager
 hassio_api: true
 homeassistant_api: true
