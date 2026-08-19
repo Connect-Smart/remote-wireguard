@@ -1,31 +1,19 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
 # Home Assistant Third Party Add-on: WireGuard Client
-# HA Backup service - runs daily (configurable interval)
+# HA Backup service - dagelijks op ingesteld tijdstip, met retry logica
 # ==============================================================================
 
-DEFAULT_INTERVAL_HOURS="24"
-
-get_backup_interval() {
-    local interval="${DEFAULT_INTERVAL_HOURS}"
-    if bashio::config.has_value "advanced.backup_interval_hours"; then
-        interval="$(bashio::config "advanced.backup_interval_hours")"
-    elif bashio::config.has_value "backup_interval_hours"; then
-        interval="$(bashio::config "backup_interval_hours")"
-    fi
-    if ! [[ "${interval}" =~ ^[0-9]+$ ]] || [[ "${interval}" -lt 1 ]]; then
-        bashio::log.warning "backup_interval_hours ongeldig (${interval}); standaard ${DEFAULT_INTERVAL_HOURS}u wordt gebruikt."
-        interval="${DEFAULT_INTERVAL_HOURS}"
-    fi
-    printf '%s' "${interval}"
-}
+DEFAULT_BACKUP_TIME="02:00"
+MAX_RETRIES=3
+RETRY_INTERVAL=1800  # 30 minuten tussen retries
 
 # Controleer of backup ingeschakeld is
 BACKUP_ENABLED="true"
-if bashio::config.has_value "advanced.backup_enabled"; then
-    BACKUP_ENABLED=$(bashio::config "advanced.backup_enabled")
-elif bashio::config.has_value "backup_enabled"; then
+if bashio::config.has_value "backup_enabled"; then
     BACKUP_ENABLED=$(bashio::config "backup_enabled")
+elif bashio::config.has_value "advanced.backup_enabled"; then
+    BACKUP_ENABLED=$(bashio::config "advanced.backup_enabled")
 fi
 
 if [[ "${BACKUP_ENABLED,,}" != "true" ]]; then
@@ -33,18 +21,58 @@ if [[ "${BACKUP_ENABLED,,}" != "true" ]]; then
     exit 0
 fi
 
-INTERVAL_HOURS=$(get_backup_interval)
-INTERVAL_SECONDS=$(( INTERVAL_HOURS * 3600 ))
-
-bashio::log.info "HA Backup service gestart (interval: ${INTERVAL_HOURS} uur)"
+# Tijdstip ophalen (formaat HH:MM)
+BACKUP_TIME="${DEFAULT_BACKUP_TIME}"
+if bashio::config.has_value "backup_time"; then
+    BACKUP_TIME=$(bashio::config "backup_time")
+fi
+if ! [[ "${BACKUP_TIME}" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
+    bashio::log.warning "HA Backup: ongeldige backup_time '${BACKUP_TIME}', standaard ${DEFAULT_BACKUP_TIME} wordt gebruikt"
+    BACKUP_TIME="${DEFAULT_BACKUP_TIME}"
+fi
 
 SCRIPT="/etc/services.d/ha-backup/create_backup.sh"
 
-# Wacht 5 minuten na start voordat eerste backup
-sleep 300
+# Bereken seconden tot het volgende geplande tijdstip
+seconds_until_next_run() {
+    local target_hour target_min now_epoch target_epoch
+    target_hour=$(echo "${BACKUP_TIME}" | cut -d: -f1)
+    target_min=$(echo "${BACKUP_TIME}" | cut -d: -f2)
+
+    now_epoch=$(date +%s)
+    target_epoch=$(date -d "today ${target_hour}:${target_min}:00" +%s 2>/dev/null \
+        || date -j -f "%H:%M:%S" "${target_hour}:${target_min}:00" +%s 2>/dev/null)
+
+    if [[ "${target_epoch}" -le "${now_epoch}" ]]; then
+        target_epoch=$(( target_epoch + 86400 ))
+    fi
+
+    echo $(( target_epoch - now_epoch ))
+}
+
+bashio::log.info "HA Backup service gestart (dagelijks om ${BACKUP_TIME}, max ${MAX_RETRIES} retries)"
 
 while true; do
-    ${SCRIPT} || bashio::log.warning "HA Backup: script afgesloten met fout, volgende poging over ${INTERVAL_HOURS} uur"
-    bashio::log.info "HA Backup: volgende backup over ${INTERVAL_HOURS} uur"
-    sleep "${INTERVAL_SECONDS}"
+    WAIT=$(seconds_until_next_run)
+    NEXT_RUN=$(date -d "+${WAIT} seconds" "+%Y-%m-%d %H:%M" 2>/dev/null \
+        || date -v "+${WAIT}S" "+%Y-%m-%d %H:%M" 2>/dev/null)
+    bashio::log.info "HA Backup: volgende backup gepland om ${NEXT_RUN}"
+    sleep "${WAIT}"
+
+    SUCCESS=false
+    for attempt in $(seq 1 ${MAX_RETRIES}); do
+        bashio::log.info "HA Backup: poging ${attempt}/${MAX_RETRIES}..."
+        if ${SCRIPT}; then
+            SUCCESS=true
+            break
+        fi
+        if [[ "${attempt}" -lt "${MAX_RETRIES}" ]]; then
+            bashio::log.warning "HA Backup: poging ${attempt} mislukt, volgende poging over $(( RETRY_INTERVAL / 60 )) minuten"
+            sleep "${RETRY_INTERVAL}"
+        fi
+    done
+
+    if [[ "${SUCCESS}" != "true" ]]; then
+        bashio::log.warning "HA Backup: alle ${MAX_RETRIES} pogingen mislukt, volgende kans morgen om ${BACKUP_TIME}"
+    fi
 done
