@@ -33,41 +33,48 @@ fi
 
 SCRIPT="/etc/services.d/ha-backup/create_backup.sh"
 
-# Bereken seconden tot het volgende geplande tijdstip
+# Bereken seconden tot het volgende geplande tijdstip.
+# Gebruikt bewust alleen "date +FORMAT" en bash-arithmetiek (geen "date -d/-j/-v"
+# parsing), want dat verschilt te veel tussen GNU/BusyBox/BSD date en liet de
+# service eerder telkens meteen crashen (en dus herstarten) op dit BusyBox-image.
 seconds_until_next_run() {
-    local target_hour target_min today now_epoch target_epoch
+    local target_hour target_min cur_hour cur_min cur_sec target_secs cur_secs diff
+
     target_hour=$(echo "${BACKUP_TIME}" | cut -d: -f1)
     target_min=$(echo "${BACKUP_TIME}" | cut -d: -f2)
-    today=$(date +%Y-%m-%d)
+    # 10# voorkomt dat bijv. "08"/"09" als (ongeldig) octaal wordt gelezen
+    target_hour=$((10#${target_hour}))
+    target_min=$((10#${target_min}))
 
-    now_epoch=$(date +%s)
-    # ISO-vorm werkt zowel met GNU date (Alpine/busybox) als BSD date
-    target_epoch=$(date -d "${today} ${target_hour}:${target_min}:00" +%s 2>/dev/null \
-        || date -j -f "%Y-%m-%d %H:%M:%S" "${today} ${target_hour}:${target_min}:00" +%s 2>/dev/null)
+    cur_hour=$((10#$(date +%H)))
+    cur_min=$((10#$(date +%M)))
+    cur_sec=$((10#$(date +%S)))
 
-    if ! [[ "${target_epoch}" =~ ^[0-9]+$ ]]; then
-        # Kon de tijd niet parsen, probeer over een uur opnieuw i.p.v. te crashen
-        echo 3600
-        return
+    target_secs=$(( target_hour * 3600 + target_min * 60 ))
+    cur_secs=$(( cur_hour * 3600 + cur_min * 60 + cur_sec ))
+
+    diff=$(( target_secs - cur_secs ))
+    if (( diff <= 0 )); then
+        diff=$(( diff + 86400 ))
+        echo "${diff} true"
+    else
+        echo "${diff} false"
     fi
-
-    if [[ "${target_epoch}" -le "${now_epoch}" ]]; then
-        target_epoch=$(( target_epoch + 86400 ))
-    fi
-
-    echo $(( target_epoch - now_epoch ))
 }
 
 bashio::log.info "HA Backup service gestart (dagelijks om ${BACKUP_TIME}, max ${MAX_RETRIES} retries)"
 
 while true; do
-    WAIT=$(seconds_until_next_run)
+    read -r WAIT TOMORROW <<< "$(seconds_until_next_run)"
     if ! [[ "${WAIT}" =~ ^[0-9]+$ ]]; then
         WAIT=3600
+        TOMORROW=false
     fi
-    NEXT_RUN=$(date -d "+${WAIT} seconds" "+%Y-%m-%d %H:%M" 2>/dev/null \
-        || date -v "+${WAIT}S" "+%Y-%m-%d %H:%M" 2>/dev/null)
-    bashio::log.info "HA Backup: volgende backup gepland om ${NEXT_RUN}"
+    if [[ "${TOMORROW}" == "true" ]]; then
+        bashio::log.info "HA Backup: volgende backup gepland morgen om ${BACKUP_TIME}"
+    else
+        bashio::log.info "HA Backup: volgende backup gepland vandaag om ${BACKUP_TIME}"
+    fi
     sleep "${WAIT}"
 
     SUCCESS=false
