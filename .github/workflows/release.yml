@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+# Voorkom dat twee gelijktijdige runs op hetzelfde moment allebei
+# proberen dezelfde tag/release aan te maken.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (incl. tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lees add-on versie uit config.yaml
+        id: version
+        run: |
+          set -euo pipefail
+
+          CONFIG_FILE="remote-wireguard/config.yaml"
+          if [ ! -f "${CONFIG_FILE}" ]; then
+            echo "Configbestand ${CONFIG_FILE} niet gevonden" >&2
+            exit 1
+          fi
+
+          VERSION=$(grep -E '^version:[[:space:]]*' "${CONFIG_FILE}" | head -n1 \
+            | sed -E 's/^version:[[:space:]]*//' \
+            | tr -d '"' | tr -d "'" | tr -d '\r' \
+            | xargs)
+
+          if [ -z "${VERSION}" ]; then
+            echo "Kon geen version uitlezen uit ${CONFIG_FILE}" >&2
+            exit 1
+          fi
+
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Onverwacht versieformaat: '${VERSION}'" >&2
+            exit 1
+          fi
+
+          TAG="v${VERSION}"
+          echo "Gevonden versie: ${VERSION} (tag: ${TAG})"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Controleer of tag/release al bestaat
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Git tag ${TAG} bestaat al lokaal/remote, sla release over."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "GitHub Release ${TAG} bestaat al, sla release over."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Geen bestaande tag/release voor ${TAG} gevonden."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Maak tag en GitHub Release aan
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          gh release create "${TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${{ github.sha }}" \
+            --title "${TAG}" \
+            --generate-notes
