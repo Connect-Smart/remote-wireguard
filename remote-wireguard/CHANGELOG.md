@@ -1,3 +1,7 @@
+## 1.5.46
+
+- `ha-commands`: een `update_addon`-commando gericht op dit add-on zelf (bv. slug `cs_wg_client`) leidde altijd tot een vals-negatieve time-out — Supervisor vervangt de container die het commando uitvoert namelijk als onderdeel van zo'n zelfupdate, dus die kon nooit normaal terugmelden, ook al was de update zelf gewoon gelukt. Er wordt nu vlak vóór zo'n zelfupdate een marker in `/data` weggeschreven (overleeft de update); de nieuwe container meldt het commando bij zijn eerste poll alsnog als voltooid (met een echte controle of er niet alsnog een update openstaat) i.p.v. dat de portal na 5 minuten "mislukt" toont voor een update die feitelijk prima lukte.
+
 ## 1.5.45
 
 - `ha-status`: Home Assistant Core "Reparaties" (Instellingen > Systeem > Reparaties, bv. "De YAML-configuratie voor HTTP wordt verwijderd") worden nu ook meegestuurd. Deze data is alleen via de Core WebSocket API beschikbaar (geen REST endpoint), dus nieuwe runtime-dependency `websocat` toegevoegd. Reparaties komen in dezelfde `issues`-lijst als Supervisor's resolution center en verschijnen zo automatisch in de bestaande Reparaties-sectie van de portal — geen portal-wijziging nodig. Zonder de volledige vertaalcatalogus per integratie te laden tonen we domain + translation_key + severity i.p.v. de exacte HA-teksten.

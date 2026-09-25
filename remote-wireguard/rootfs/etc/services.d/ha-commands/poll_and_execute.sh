@@ -25,6 +25,12 @@
 #    vastgelopen (i.p.v. eeuwig 'Bezig') zodra de heartbeats stoppen — bv. omdat
 #    een host-herstart deze container zelf onderbreekt vóórdat hij het
 #    eindresultaat kon terugmelden.
+#  - Zelfupdate-detectie: is de update_addon-slug die van dit add-on zelf, dan
+#    vervangt Supervisor deze container als onderdeel van de update — die kan dus
+#    per definitie nooit meer normaal terugmelden. Een marker in /data (overleeft
+#    een add-on-update) zorgt dat de nieuwe container dit commando bij zijn eerste
+#    poll alsnog als voltooid meldt, i.p.v. dat de portal na 5 minuten een
+#    vals-negatieve time-out toont voor een update die feitelijk gewoon lukte.
 # ==============================================================================
 
 set -o pipefail
@@ -52,6 +58,7 @@ ENROLLMENT_TOKEN=$(bashio::config "enrollment_token")
 VERIFY_SSL=$(get_config_value "verify_ssl" "true")
 MIN_DISK_FREE_GB=$(get_config_value "min_disk_free_gb" "2")
 ADDON_VERSION=$(bashio::addon.version 2>/dev/null || echo "")
+SELF_UPDATE_MARKER="/data/ha_commands_self_update.json"
 
 if ! [[ "${MIN_DISK_FREE_GB}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
     MIN_DISK_FREE_GB="2"
@@ -65,6 +72,12 @@ if [[ -z "${ENROLLMENT_TOKEN}" ]]; then
     bashio::log.debug "HA Commands: geen enrollment_token beschikbaar, overslaan"
     exit 0
 fi
+
+# Geen bashio::addon.slug beschikbaar; 'self' is Supervisor's eigen conventie om naar
+# de aanroepende add-on te verwijzen (zie ook bashio::addon.update, dat intern hetzelfde
+# doet), dus haal de eigen info rechtstreeks op via /addons/self/info.
+SELF_ADDON_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/addons/self/info" 2>/dev/null)
+ADDON_SLUG=$(echo "${SELF_ADDON_INFO}" | jq -r '.data.slug // empty')
 
 if [[ "${PORTAL_URL}" != http://* && "${PORTAL_URL}" != https://* ]]; then
     PORTAL_URL="https://${PORTAL_URL}"
@@ -278,6 +291,10 @@ execute_command() {
                 EXEC_MESSAGE="Geen add-on slug meegegeven"
                 return 1
             fi
+            if [[ -n "${ADDON_SLUG}" && "${slug}" == "${ADDON_SLUG}" ]]; then
+                bashio::log.info "HA Commands: dit is een update van dit add-on zelf — marker wegschrijven, deze container wordt vervangen"
+                jq -n --arg id "${command_id}" '{command_id: $id}' > "${SELF_UPDATE_MARKER}"
+            fi
             endpoint="${SUPERVISOR_API}/addons/${slug}/update"
             ;;
         resolve_suggestion)
@@ -318,6 +335,11 @@ execute_command() {
     local response
     response=$(cat "${tmp_response}" 2>/dev/null)
     rm -f "${tmp_response}"
+    # We zijn nog in leven na de aanroep, dus dit was geen zelfupdate die de
+    # container verving (of de aanroep sneuvelde al vóór die vervanging) —
+    # de marker is dan niet nodig, dit commando krijgt gewoon een normaal
+    # resultaat via de rest van deze functie.
+    rm -f "${SELF_UPDATE_MARKER}"
 
     if [[ -z "${response}" ]]; then
         EXEC_MESSAGE="Geen reactie van Supervisor API"
@@ -395,6 +417,28 @@ needs_disk_check() {
 needs_connectivity_check() {
     [[ "${1}" == update_* || "${1}" == "resolve_suggestion" ]]
 }
+
+# Update dit add-on zichzelf (update_addon op de eigen slug), dan wordt de container
+# die het commando uitvoert door Supervisor vervangen vóórdat hij kan terugmelden —
+# dat is inherent aan hoe een zelfupdate werkt, geen mislukking. /data overleeft een
+# add-on-update (het is de persistente opslag van het add-on zelf), dus een marker
+# die we vlak vóór de update-aanroep wegschrijven is er nog als deze nieuwe container
+# opstart. Is die er, dan weten we zeker dat de nieuwe (dus bijgewerkte) container
+# gezond is gestart en melden we het commando alsnog als voltooid.
+if [[ -f "${SELF_UPDATE_MARKER}" ]]; then
+    PENDING_SELF_UPDATE_ID=$(jq -r '.command_id // empty' "${SELF_UPDATE_MARKER}" 2>/dev/null)
+    rm -f "${SELF_UPDATE_MARKER}"
+    if [[ -n "${PENDING_SELF_UPDATE_ID}" ]]; then
+        SELF_STILL_UPDATE=$(echo "${SELF_ADDON_INFO}" | jq -r '.data.update_available // false')
+        if [[ "${SELF_STILL_UPDATE}" == "true" ]]; then
+            bashio::log.warning "HA Commands: terug na update van dit add-on zelf, maar Supervisor geeft nog een update aan (versie ${ADDON_VERSION})"
+            report_result "${PENDING_SELF_UPDATE_ID}" "error" "Add-on herstart met versie ${ADDON_VERSION}, maar Supervisor geeft nog steeds een update aan — controleer handmatig"
+        else
+            bashio::log.info "HA Commands: terug na update van dit add-on zelf, meld commando ${PENDING_SELF_UPDATE_ID} als voltooid (versie ${ADDON_VERSION})"
+            report_result "${PENDING_SELF_UPDATE_ID}" "done" "Add-on bijgewerkt naar versie ${ADDON_VERSION} en succesvol herstart"
+        fi
+    fi
+fi
 
 # Verwerk maximaal 5 openstaande commando's per poll-cyclus
 for _ in 1 2 3 4 5; do
