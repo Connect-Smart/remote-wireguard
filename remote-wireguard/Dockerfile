@@ -12,13 +12,16 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #       git
 
 # Install runtime dependencies
+# websocat: voor repairs/list_issues via de Home Assistant Core WebSocket API
+# (die data is niet via de gewone REST API beschikbaar)
 RUN apk add --no-cache \
       iptables \
       jq \
       curl \
       libqrencode-tools \
       openresolv \
-      wireguard-tools
+      wireguard-tools \
+      websocat
 
 # # Build wireguard-go from source
 # RUN git clone --depth=1 https://git.zx2c4.com/wireguard-go /tmp/wireguard-go && \

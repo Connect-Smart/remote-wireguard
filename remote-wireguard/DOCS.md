@@ -95,6 +95,18 @@ Ingebouwde veiligheidschecks rond een update:
   actie eigenlijk wél gelukt is, dan kan een vastgelopen melding ook met één klik handmatig als
   "Afgehandeld" worden gemarkeerd in de portal.
 
+### Reparaties (Home Assistant Core)
+
+Naast Supervisor's eigen resolution center (herstart vereist, unhealthy, enz.) rapporteert de
+add-on nu ook de "Reparaties" die Home Assistant Core zelf signaleert onder **Instellingen >
+Systeem > Reparaties** (bv. deprecatiewaarschuwingen zoals "De YAML-configuratie voor HTTP wordt
+verwijderd"). Deze data is alleen via de Home Assistant WebSocket API beschikbaar, niet via de
+REST API — de add-on gebruikt hiervoor `websocat`. Ze verschijnen in dezelfde Reparaties-sectie
+in de portal als de Supervisor-meldingen. Zonder de volledige vertaalcatalogus van elke
+integratie erbij te laden tonen we domein + technische code + ernst (bv. `http.yaml_deprecated
+(warning)`) in plaats van de exacte tekst uit de Home Assistant-interface — voor de volledige
+uitleg en om een reparatie op te lossen, ga je naar de Reparaties-pagina in Home Assistant zelf.
+
 ### Tips
 
 - Verifieer na de eerste start in het logboek dat de juiste clientnaam en externe URL worden gemeld.

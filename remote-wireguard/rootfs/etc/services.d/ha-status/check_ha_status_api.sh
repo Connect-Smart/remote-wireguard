@@ -154,6 +154,46 @@ SUGGESTIONS=$(echo "${RESOLUTION_INFO}" | jq '[
 
 UNHEALTHY=$(echo "${RESOLUTION_INFO}" | jq '.data.unhealthy // []')
 
+# Home Assistant Core "Reparaties" (Instellingen > Systeem > Reparaties) zijn een apart
+# systeem van Supervisor's resolution center hierboven, en alleen via de WebSocket API
+# beschikbaar (geen REST endpoint). We halen ze op via websocat en voegen ze toe aan
+# dezelfde ISSUES-lijst. Zonder de vertaalcatalogus van elke integratie erbij te halen
+# is er geen exacte, vertaalde tekst zoals in de HA-interface; domain + translation_key
+# + severity geven al genoeg context om te weten om welke reparatie het gaat.
+fetch_core_repair_issues() {
+    if ! command -v websocat >/dev/null 2>&1; then
+        echo '[]'
+        return
+    fi
+    local auth_msg cmd_msg raw_output
+    auth_msg=$(jq -nc --arg token "${SUPERVISOR_TOKEN}" '{type: "auth", access_token: $token}')
+    cmd_msg='{"id":1,"type":"repairs/list_issues"}'
+    raw_output=$(
+        { printf '%s\n%s\n' "${auth_msg}" "${cmd_msg}"; sleep 2; } \
+            | timeout 10 websocat "ws://supervisor/core/websocket" 2>/dev/null
+    )
+    echo "${raw_output}" | jq -c 'select(.id == 1 and .type == "result") | .result.issues // []' 2>/dev/null | tail -n1
+}
+
+CORE_REPAIR_ISSUES_RAW=$(fetch_core_repair_issues)
+if [[ -z "${CORE_REPAIR_ISSUES_RAW}" ]]; then
+    CORE_REPAIR_ISSUES_RAW='[]'
+fi
+bashio::log.debug "Core repair issues: ${CORE_REPAIR_ISSUES_RAW}"
+
+CORE_ISSUES=$(echo "${CORE_REPAIR_ISSUES_RAW}" | jq '[
+    .[]?
+    | select(.ignored != true)
+    | {
+        uuid: ("core:" + .domain + ":" + .issue_id),
+        type: (.domain + "." + .translation_key),
+        context: .severity,
+        reference: null
+      }
+] // []')
+
+ISSUES=$(echo "${ISSUES}" | jq --argjson core_issues "${CORE_ISSUES}" '. + $core_issues')
+
 # Bouw JSON payload
 PAYLOAD=$(jq -n \
   --argjson core_update "${CORE_UPDATE}" \

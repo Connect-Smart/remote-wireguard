@@ -1,3 +1,7 @@
+## 1.5.45
+
+- `ha-status`: Home Assistant Core "Reparaties" (Instellingen > Systeem > Reparaties, bv. "De YAML-configuratie voor HTTP wordt verwijderd") worden nu ook meegestuurd. Deze data is alleen via de Core WebSocket API beschikbaar (geen REST endpoint), dus nieuwe runtime-dependency `websocat` toegevoegd. Reparaties komen in dezelfde `issues`-lijst als Supervisor's resolution center en verschijnen zo automatisch in de bestaande Reparaties-sectie van de portal — geen portal-wijziging nodig. Zonder de volledige vertaalcatalogus per integratie te laden tonen we domain + translation_key + severity i.p.v. de exacte HA-teksten.
+
 ## 1.5.44
 
 - `ha-commands`: minder valse alarmen bij de connectiviteitscheck na een update. `notify.*` en `device_tracker.*` worden nu overgeslagen (hun beschikbaarheid hangt af van of een telefoon/app bereikbaar is, niet van Core's gezondheid), en een gevonden regressie wordt na 90 seconden nog eens herbevestigd zodat apparaten die vlak na de herstart alsnog reconnecten (bv. zigbee/mesh) niet als "niet meer beschikbaar" worden gemeld. De resulterende melding is ook voorzichtiger geformuleerd ("kan los staan van deze update").
