@@ -1,3 +1,7 @@
+## 1.5.44
+
+- `ha-commands`: minder valse alarmen bij de connectiviteitscheck na een update. `notify.*` en `device_tracker.*` worden nu overgeslagen (hun beschikbaarheid hangt af van of een telefoon/app bereikbaar is, niet van Core's gezondheid), en een gevonden regressie wordt na 90 seconden nog eens herbevestigd zodat apparaten die vlak na de herstart alsnog reconnecten (bv. zigbee/mesh) niet als "niet meer beschikbaar" worden gemeld. De resulterende melding is ook voorzichtiger geformuleerd ("kan los staan van deze update").
+
 ## 1.5.43
 
 - `ha-status`: haalt nu ook alle overige `update.*`-entiteiten uit Home Assistant zelf op (HACS, integraties, apparaten zoals ESPHome, enz.) via de Core API en stuurt die mee als `updates.other` — Core/OS/Supervisor/add-on-updates worden uitgesloten om dubbele meldingen te voorkomen.

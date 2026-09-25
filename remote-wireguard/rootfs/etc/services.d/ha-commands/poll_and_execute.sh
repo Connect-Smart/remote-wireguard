@@ -9,7 +9,11 @@
 #  - Detectie van "herstart vereist" (Supervisor resolution center) -> apart
 #    gemeld aan de portal zodat een admin de herstart met één klik kan starten
 #  - Connectiviteitscontrole na de update: welke devices/entiteiten die vóór
-#    de update beschikbaar waren, zijn dat na de update niet meer?
+#    de update beschikbaar waren, zijn dat na de update niet meer? notify.* en
+#    device_tracker.* worden overgeslagen (telefoon/netwerk-afhankelijk, geen
+#    signaal over Core's gezondheid) en een gevonden regressie wordt na 90s nog
+#    een keer herbevestigd, zodat apparaten die vlak na de herstart reconnecten
+#    (bv. zigbee) niet als vals-positief worden gemeld.
 #  - Verificatie dat een update ook echt is toegepast: Supervisor's "ok" bij
 #    de update-aanroep betekent alleen dat die aanroep gelukt is, niet dat de
 #    update ook echt is doorgevoerd. Na afloop wordt de info van het bijgewerkte
@@ -126,9 +130,17 @@ check_disk_space() {
 
 # Haalt entity_id's op die momenteel 'unavailable' of 'unknown' zijn (gesorteerd,
 # één per regel) via de door Supervisor geproxyde Home Assistant Core API.
+# notify.* en device_tracker.* worden bewust overgeslagen: die weerspiegelen of een
+# telefoon/app bereikbaar is (netwerk/GPS-afhankelijk), niet of Home Assistant Core
+# zelf gezond is — anders leidt elke offline telefoon tot een vals-positieve melding.
 fetch_unavailable_entities() {
     curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/core/api/states" 2>/dev/null \
-        | jq -r '[.[]? | select(.state == "unavailable" or .state == "unknown") | .entity_id] | sort | .[]' 2>/dev/null
+        | jq -r '[
+            .[]?
+            | select(.state == "unavailable" or .state == "unknown")
+            | select(((.entity_id | startswith("notify.")) or (.entity_id | startswith("device_tracker."))) | not)
+            | .entity_id
+          ] | sort | .[]' 2>/dev/null
 }
 
 # Wacht tot Home Assistant Core weer 'running' is (na een restart door de update).
@@ -440,9 +452,19 @@ for _ in 1 2 3 4 5; do
         fi
         AFTER_UNAVAILABLE=$(fetch_unavailable_entities)
         MISSING=$(comm -13 <(echo "${BEFORE_UNAVAILABLE}") <(echo "${AFTER_UNAVAILABLE}") | sed '/^$/d')
+
+        if [[ -n "${MISSING}" ]]; then
+            # Herbevestigen na een korte afkoelperiode: apparaten die vlak na de
+            # herstart nog aan het reconnecten zijn (bv. zigbee/mesh) willen we niet
+            # als 'niet meer beschikbaar' melden als ze binnen deze marge terugkomen.
+            sleep 90
+            AFTER_UNAVAILABLE_RECHECK=$(fetch_unavailable_entities)
+            MISSING=$(comm -12 <(echo "${MISSING}") <(echo "${AFTER_UNAVAILABLE_RECHECK}") | sed '/^$/d')
+        fi
+
         if [[ -n "${MISSING}" ]]; then
             MISSING_COUNT=$(echo "${MISSING}" | grep -c .)
-            EXEC_MESSAGE="${EXEC_MESSAGE} — LET OP: ${MISSING_COUNT} device(s)/entiteit(en) niet meer beschikbaar"
+            EXEC_MESSAGE="${EXEC_MESSAGE} — LET OP: ${MISSING_COUNT} device(s)/entiteit(en) niet meer beschikbaar (kan los staan van deze update, bv. bij batterij-/zigbee-apparaten)"
             EXEC_DATA=$(echo "${MISSING}" | jq -R . | jq -s '{missing_entities: .}')
         else
             EXEC_MESSAGE="${EXEC_MESSAGE} — alle devices/entiteiten weer online"
