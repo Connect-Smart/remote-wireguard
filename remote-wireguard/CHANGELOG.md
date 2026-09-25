@@ -1,3 +1,10 @@
+## 1.5.39
+
+- `ha-commands`: schijfruimte-check vooraf via `GET /host/info` — een update wordt geweigerd (en gemeld als mislukt) als er minder dan `advanced.min_disk_free_gb` (standaard 2GB) vrije schijfruimte is.
+- `ha-commands`: nieuwe actie `resolve_suggestion` — als Supervisor na een update aangeeft dat een herstart nodig is (resolution center suggestie van het type reboot/restart), meldt het add-on dit als aparte status `restart_required` terug, inclusief de suggestie-uuid. De portal kan die herstart vervolgens met één klik alsnog laten uitvoeren.
+- `ha-commands`: connectiviteitscheck na elke update/herstart — devices/entiteiten die vóór de actie beschikbaar waren en dat erna niet meer zijn, worden vergeleken via de Core API (`/core/api/states`) en gemeld in het resultaat.
+- `ha-commands`: commando's die te lang op 'running' blijven staan (add-on nooit teruggekomen) worden nu door de portal als mislukt gemarkeerd na een time-out, zodat een stille storing altijd als melding verschijnt.
+
 ## 1.5.35
 
 - Nieuwe `ha-commands` service toegevoegd: pollt elke 30 seconden `GET /api/ha-commands/pull` op de portal voor openstaande update-commando's.

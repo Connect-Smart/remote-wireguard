@@ -1,6 +1,6 @@
 ---
 name: Connect-Smart WG Client
-version: 1.5.38
+version: 1.5.39
 slug: cs_wg_client
 description: Connect-Smart WireGuard client for Remote Portal
 url: https://github.com/Connect-Smart/remote-wireguard/
@@ -32,6 +32,7 @@ options:
   advanced:
     portal_url: "https://remote.connect-smart.nl"
     verify_ssl: true
+    min_disk_free_gb: 2
     manual_wireguard_config: ""
 schema:
   enrollment_token: str?
@@ -41,6 +42,7 @@ schema:
   advanced:
     portal_url: str?
     verify_ssl: bool?
+    min_disk_free_gb: int?
     manual_wireguard_config: str?
   log_level: list(trace|debug|info|notice|warning|error|critical)?
   monitor_target: str?

@@ -3,6 +3,13 @@
 # Home Assistant Third Party Add-on: WireGuard Client
 # Haalt openstaande update-commando's op bij de Remote Portal en voert ze uit
 # via de Supervisor API (hetzelfde mechanisme dat het 'ha' CLI commando gebruikt).
+#
+# Extra's t.o.v. een kale update-aanroep:
+#  - Schijfruimte-check vooraf (weigert de update bij te weinig vrije ruimte)
+#  - Detectie van "herstart vereist" (Supervisor resolution center) -> apart
+#    gemeld aan de portal zodat een admin de herstart met één klik kan starten
+#  - Connectiviteitscontrole na de update: welke devices/entiteiten die vóór
+#    de update beschikbaar waren, zijn dat na de update niet meer?
 # ==============================================================================
 
 set -o pipefail
@@ -28,7 +35,12 @@ get_config_value() {
 PORTAL_URL=$(get_config_value "portal_url" "https://remote.connect-smart.nl")
 ENROLLMENT_TOKEN=$(bashio::config "enrollment_token")
 VERIFY_SSL=$(get_config_value "verify_ssl" "true")
+MIN_DISK_FREE_GB=$(get_config_value "min_disk_free_gb" "2")
 ADDON_VERSION=$(bashio::addon.version 2>/dev/null || echo "")
+
+if ! [[ "${MIN_DISK_FREE_GB}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    MIN_DISK_FREE_GB="2"
+fi
 
 # Trim whitespace
 PORTAL_URL=$(echo "${PORTAL_URL}" | xargs)
@@ -52,11 +64,13 @@ fi
 
 report_result() {
     local command_id="${1}"
-    local status="${2}"      # done | error
+    local status="${2}"        # done | error | restart_required
     local message="${3}"
+    local data_json="${4:-null}"
 
     local payload
-    payload=$(jq -n --arg status "${status}" --arg message "${message}" '{status: $status, message: $message}')
+    payload=$(jq -n --arg status "${status}" --arg message "${message}" --argjson data "${data_json}" \
+        '{status: $status, message: $message, data: $data}')
 
     curl -s ${CURL_OPTS} -X POST "${PORTAL_URL}/api/ha-commands/${command_id}/result" \
         -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
@@ -65,11 +79,58 @@ report_result() {
         -d "${payload}" > /dev/null 2>&1
 }
 
-# Voer één update-commando uit via de Supervisor API. Retourneert 0 bij succes.
+# Controleer vrije schijfruimte op de host via de Supervisor API.
+# Zet EXEC_MESSAGE en retourneert 1 als er te weinig ruimte is.
+check_disk_space() {
+    local host_info free
+    host_info=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/host/info" 2>/dev/null)
+    free=$(echo "${host_info}" | jq -r '.data.disk_free // empty')
+
+    if [[ -z "${free}" ]]; then
+        bashio::log.warning "HA Commands: kon vrije schijfruimte niet bepalen, update gaat toch door"
+        return 0
+    fi
+
+    if awk -v f="${free}" -v m="${MIN_DISK_FREE_GB}" 'BEGIN{exit !(f < m)}'; then
+        EXEC_MESSAGE="Onvoldoende schijfruimte: ${free}GB vrij (minimaal ${MIN_DISK_FREE_GB}GB vereist)"
+        return 1
+    fi
+    return 0
+}
+
+# Haalt entity_id's op die momenteel 'unavailable' of 'unknown' zijn (gesorteerd,
+# één per regel) via de door Supervisor geproxyde Home Assistant Core API.
+fetch_unavailable_entities() {
+    curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/core/api/states" 2>/dev/null \
+        | jq -r '[.[]? | select(.state == "unavailable" or .state == "unknown") | .entity_id] | sort | .[]' 2>/dev/null
+}
+
+# Wacht tot Home Assistant Core weer 'running' is (na een restart door de update).
+wait_for_core_running() {
+    local timeout="${1:-300}" waited=0 state
+    while (( waited < timeout )); do
+        state=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/core/info" 2>/dev/null \
+            | jq -r '.data.state // empty')
+        if [[ "${state}" == "running" ]]; then
+            return 0
+        fi
+        sleep 10
+        waited=$(( waited + 10 ))
+    done
+    return 1
+}
+
+# Kijkt of Supervisor's resolution center een herstart/restart-actie voorstelt
+# (bv. na een OS/Supervisor update). Print de suggestie als compacte JSON, of niets.
+find_restart_suggestion() {
+    curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/resolution/info" 2>/dev/null \
+        | jq -c '[.data.suggestions[]? | select(.type | test("reboot|restart"; "i"))][0] // empty' 2>/dev/null
+}
+
+# Voer één commando uit via de Supervisor API. Retourneert 0 bij succes.
+# Zet EXEC_MESSAGE met een omschrijving.
 execute_command() {
-    local action="${1}"
-    local slug="${2}"
-    local endpoint=""
+    local action="${1}" slug="${2}" uuid="${3}" endpoint=""
 
     case "${action}" in
         update_core)       endpoint="${SUPERVISOR_API}/core/update" ;;
@@ -82,6 +143,13 @@ execute_command() {
             fi
             endpoint="${SUPERVISOR_API}/addons/${slug}/update"
             ;;
+        resolve_suggestion)
+            if [[ -z "${uuid}" ]]; then
+                EXEC_MESSAGE="Geen suggestie-uuid meegegeven"
+                return 1
+            fi
+            endpoint="${SUPERVISOR_API}/resolution/suggestion/${uuid}"
+            ;;
         *)
             EXEC_MESSAGE="Onbekende actie: ${action}"
             return 1
@@ -91,8 +159,8 @@ execute_command() {
     bashio::log.info "HA Commands: uitvoeren '${action}' via ${endpoint}..."
 
     # Updates (vooral core/os) kunnen enkele minuten duren; Supervisor API antwoordt
-    # pas als de update klaar is. Geef ruim de tijd.
-    local response
+    # pas als de actie klaar is. Geef ruim de tijd.
+    local response result
     response=$(curl -s --max-time 1800 \
         -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
         -H "Content-Type: application/json" \
@@ -103,7 +171,6 @@ execute_command() {
         return 1
     fi
 
-    local result
     result=$(echo "${response}" | jq -r '.result // empty')
 
     if [[ "${result}" == "ok" ]]; then
@@ -113,6 +180,15 @@ execute_command() {
 
     EXEC_MESSAGE=$(echo "${response}" | jq -r '.message // "onbekende fout"')
     return 1
+}
+
+# Deze acties raken Core (rechtstreeks of via een herstart) en verdienen dus
+# zowel een schijfruimte-check vooraf als een connectiviteitscheck achteraf.
+needs_disk_check() {
+    [[ "${1}" == update_* ]]
+}
+needs_connectivity_check() {
+    [[ "${1}" == update_* || "${1}" == "resolve_suggestion" ]]
 }
 
 # Verwerk maximaal 5 openstaande commando's per poll-cyclus
@@ -134,15 +210,66 @@ for _ in 1 2 3 4 5; do
 
     ACTION=$(echo "${PULL_RESPONSE}" | jq -r '.command.action // empty')
     SLUG=$(echo "${PULL_RESPONSE}" | jq -r '.command.params.slug // empty')
+    SUGGESTION_UUID=$(echo "${PULL_RESPONSE}" | jq -r '.command.params.uuid // empty')
 
-    bashio::log.info "HA Commands: commando ${COMMAND_ID} ontvangen: ${ACTION} ${SLUG}"
+    bashio::log.info "HA Commands: commando ${COMMAND_ID} ontvangen: ${ACTION} ${SLUG}${SUGGESTION_UUID}"
 
     EXEC_MESSAGE=""
-    if execute_command "${ACTION}" "${SLUG}"; then
-        bashio::log.info "HA Commands: commando ${COMMAND_ID} (${ACTION}) succesvol"
-        report_result "${COMMAND_ID}" "done" "${EXEC_MESSAGE}"
-    else
-        bashio::log.error "HA Commands: commando ${COMMAND_ID} (${ACTION}) mislukt: ${EXEC_MESSAGE}"
+
+    # 1) Schijfruimte-check vooraf
+    if needs_disk_check "${ACTION}" && ! check_disk_space; then
+        bashio::log.error "HA Commands: commando ${COMMAND_ID} geweigerd: ${EXEC_MESSAGE}"
         report_result "${COMMAND_ID}" "error" "${EXEC_MESSAGE}"
+        continue
+    fi
+
+    # 2) Snapshot van niet-beschikbare devices/entiteiten vóór de actie
+    BEFORE_UNAVAILABLE=""
+    if needs_connectivity_check "${ACTION}"; then
+        BEFORE_UNAVAILABLE=$(fetch_unavailable_entities)
+    fi
+
+    # 3) Actie uitvoeren
+    if execute_command "${ACTION}" "${SLUG}" "${SUGGESTION_UUID}"; then
+        EXEC_SUCCESS=true
+        bashio::log.info "HA Commands: commando ${COMMAND_ID} (${ACTION}) succesvol"
+    else
+        EXEC_SUCCESS=false
+        bashio::log.error "HA Commands: commando ${COMMAND_ID} (${ACTION}) mislukt: ${EXEC_MESSAGE}"
+    fi
+
+    # 4) Connectiviteit herchecken (wacht tot Core weer up is, vergelijk dan)
+    EXEC_DATA="null"
+    if needs_connectivity_check "${ACTION}"; then
+        if ! wait_for_core_running 300; then
+            bashio::log.warning "HA Commands: Core kwam niet binnen 5 minuten terug na commando ${COMMAND_ID}"
+        fi
+        AFTER_UNAVAILABLE=$(fetch_unavailable_entities)
+        MISSING=$(comm -13 <(echo "${BEFORE_UNAVAILABLE}") <(echo "${AFTER_UNAVAILABLE}") | sed '/^$/d')
+        if [[ -n "${MISSING}" ]]; then
+            MISSING_COUNT=$(echo "${MISSING}" | grep -c .)
+            EXEC_MESSAGE="${EXEC_MESSAGE} — LET OP: ${MISSING_COUNT} device(s)/entiteit(en) niet meer beschikbaar"
+            EXEC_DATA=$(echo "${MISSING}" | jq -R . | jq -s '{missing_entities: .}')
+        else
+            EXEC_MESSAGE="${EXEC_MESSAGE} — alle devices/entiteiten weer online"
+        fi
+    fi
+
+    # 5) Kijken of Supervisor een herstart adviseert (bv. na OS/Supervisor update)
+    SUGGESTION=""
+    if [[ "${ACTION}" == update_os || "${ACTION}" == update_supervisor || "${ACTION}" == "resolve_suggestion" ]]; then
+        SUGGESTION=$(find_restart_suggestion)
+    fi
+
+    if [[ -n "${SUGGESTION}" && "${SUGGESTION}" != "null" ]]; then
+        S_UUID=$(echo "${SUGGESTION}" | jq -r '.uuid')
+        S_CONTEXT=$(echo "${SUGGESTION}" | jq -r '.context // "system"')
+        RESTART_DATA=$(echo "${SUGGESTION}" | jq -c --argjson missing "$(echo "${EXEC_DATA}" | jq -c '.missing_entities // []')" \
+            '{suggestion_uuid: .uuid, suggestion_type: .type, suggestion_context: .context, missing_entities: $missing}')
+        report_result "${COMMAND_ID}" "restart_required" "Herstart (${S_CONTEXT}) nodig om door te gaan.${EXEC_MESSAGE}" "${RESTART_DATA}"
+    elif [[ "${EXEC_SUCCESS}" == "true" ]]; then
+        report_result "${COMMAND_ID}" "done" "${EXEC_MESSAGE}" "${EXEC_DATA}"
+    else
+        report_result "${COMMAND_ID}" "error" "${EXEC_MESSAGE}" "${EXEC_DATA}"
     fi
 done

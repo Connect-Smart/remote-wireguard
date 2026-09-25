@@ -67,6 +67,20 @@ van een client, met één klik een update starten voor:
 De update wordt uitgevoerd via de Supervisor API (hetzelfde mechanisme dat het `ha` CLI commando
 intern gebruikt) en het resultaat verschijnt na afloop als notificatie bij de client in de portal.
 
+Ingebouwde veiligheidschecks rond een update:
+
+- **Schijfruimte vooraf**: de update wordt geweigerd (en gemeld als mislukt) als er minder dan
+  `advanced.min_disk_free_gb` (standaard 2GB) vrije schijfruimte op de host is.
+- **Herstart vereist**: geeft Supervisor na de update aan dat een herstart nodig is, dan meldt de
+  add-on dit als aparte status "Herstart vereist" met een knop in de portal om die herstart
+  alsnog direct uit te voeren.
+- **Connectiviteitscheck**: na de update (en na een eventuele herstart) wordt gecontroleerd of alle
+  devices/entiteiten die ervoor beschikbaar waren, dat erna nog steeds zijn. Zo niet, dan verschijnt
+  dat in de melding bij de client.
+- **Time-out**: komt er geen resultaat binnen (bv. add-on zelf onbereikbaar tijdens een herstart),
+  dan markeert de portal het commando na verloop van tijd automatisch als mislukt zodat een stille
+  storing nooit onopgemerkt blijft.
+
 ### Tips
 
 - Verifieer na de eerste start in het logboek dat de juiste clientnaam en externe URL worden gemeld.
