@@ -69,9 +69,13 @@ van een client, met één klik een update starten voor:
 - Home Assistant OS
 - Supervisor
 - een individuele add-on
+- losse update-entiteiten in Home Assistant zelf (HACS-integraties/frontend-resources,
+  losse integraties, apparaten zoals ESPHome, enz.) — alles wat het standaard
+  `update`-domein van Home Assistant gebruikt
 
-De update wordt uitgevoerd via de Supervisor API (hetzelfde mechanisme dat het `ha` CLI commando
-intern gebruikt) en het resultaat verschijnt na afloop als notificatie bij de client in de portal.
+De update wordt uitgevoerd via de Supervisor API resp. de Home Assistant Core-service
+`update.install` (hetzelfde mechanisme dat het `ha` CLI commando/de HA-interface intern
+gebruikt) en het resultaat verschijnt na afloop als notificatie bij de client in de portal.
 
 Ingebouwde veiligheidschecks rond een update:
 

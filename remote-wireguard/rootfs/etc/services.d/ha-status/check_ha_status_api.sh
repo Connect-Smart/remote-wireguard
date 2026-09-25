@@ -105,6 +105,32 @@ ADDON_UPDATES=$(echo "${ADDONS_INFO}" | jq '[
       }
 ]')
 
+# Overige update-entiteiten in Home Assistant zelf: HACS, integraties, apparaten (bv.
+# ESPHome) en al het andere dat het standaard 'update'-domein gebruikt. Dit komt via de
+# door Supervisor geproxyde Core API (mogelijk dankzij homeassistant_api: true), niet via
+# de Supervisor API zelf. Core/OS/Supervisor/add-on-updates staan hierboven al via de
+# Supervisor API; die entity_id's sluiten we hier uit zodat ze niet dubbel verschijnen.
+STATES_INFO=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/core/api/states" 2>/dev/null || echo '[]')
+bashio::log.debug "States info: ${STATES_INFO}"
+
+EXCLUDE_ENTITY_IDS=$(echo "${ADDONS_INFO}" | jq '
+    ["update.home_assistant_core_update", "update.home_assistant_supervisor_update", "update.home_assistant_operating_system_update"]
+    + [(.data.apps // .data.addons // [])[]? | "update." + (.slug | gsub("-"; "_")) + "_update"]
+')
+
+OTHER_UPDATES=$(echo "${STATES_INFO}" | jq --argjson exclude "${EXCLUDE_ENTITY_IDS}" '[
+    .[]?
+    | select(.entity_id | startswith("update."))
+    | select(.state == "on")
+    | select(.entity_id as $id | ($exclude | index($id)) == null)
+    | {
+        entity_id: .entity_id,
+        name: (.attributes.friendly_name // .attributes.title // .entity_id),
+        current: (.attributes.installed_version // "onbekend"),
+        latest: (.attributes.latest_version // "onbekend")
+      }
+] // []')
+
 # Parse repairs/issues
 ISSUES=$(echo "${RESOLUTION_INFO}" | jq '[
     .data.issues[]?
@@ -140,6 +166,7 @@ PAYLOAD=$(jq -n \
   --arg supervisor_version "${SUPERVISOR_VERSION}" \
   --arg supervisor_latest "${SUPERVISOR_LATEST}" \
   --argjson addon_updates "${ADDON_UPDATES}" \
+  --argjson other_updates "${OTHER_UPDATES}" \
   --argjson issues "${ISSUES}" \
   --argjson suggestions "${SUGGESTIONS}" \
   --argjson unhealthy "${UNHEALTHY}" \
@@ -149,7 +176,8 @@ PAYLOAD=$(jq -n \
       core: (if $core_update then {current: $core_version, latest: $core_latest} else null end),
       os: (if $os_update then {current: $os_version, latest: $os_latest} else null end),
       supervisor: (if $supervisor_update then {current: $supervisor_version, latest: $supervisor_latest} else null end),
-      addons: $addon_updates
+      addons: $addon_updates,
+      other: $other_updates
     },
     repairs: {
       issues: $issues,

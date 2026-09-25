@@ -155,10 +155,6 @@ find_restart_suggestion() {
         | jq -c '[.data.suggestions[]? | select(.type | test("reboot|restart"; "i"))][0] // empty' 2>/dev/null
 }
 
-# Voer één commando uit via de Supervisor API. Retourneert 0 bij succes.
-# Zet EXEC_MESSAGE met een omschrijving. Draait de aanroep op de achtergrond en
-# stuurt onderweg heartbeats, zodat een langdurige actie (bv. een update) niet
-# stil op "Bezig" blijft staan zonder voortgang.
 # Voert een backup uit door het bestaande ha-backup script rechtstreeks aan te
 # roepen — dezelfde logica als de geplande backup (aanmaken, uploaden naar de
 # portal, oude backups opruimen), nu op verzoek vanuit de portal. Draait op de
@@ -193,11 +189,71 @@ execute_backup_now() {
     return 1
 }
 
+# Werkt een losse Home Assistant update-entiteit bij (HACS, een integratie, een apparaat
+# zoals ESPHome, enz.) via de Core-service update.install. Die service-aanroep keert vaak
+# snel terug terwijl de daadwerkelijke download/installatie op de achtergrond in Core
+# doorloopt, dus wordt hier gewacht (met heartbeats) tot de entiteit zelf niet meer 'on'
+# (= update beschikbaar) aangeeft, in plaats van de service-aanroep zelf als bewijs van
+# succes te nemen.
+execute_entity_update() {
+    local command_id="${1}" entity_id="${2}"
+
+    if [[ -z "${entity_id}" ]]; then
+        EXEC_MESSAGE="Geen entity_id meegegeven"
+        return 1
+    fi
+
+    bashio::log.info "HA Commands: update.install aanroepen voor ${entity_id}..."
+
+    local call_response
+    call_response=$(curl -s --max-time 60 \
+        -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -X POST "${SUPERVISOR_API}/core/api/services/update/install" \
+        -d "$(jq -n --arg entity_id "${entity_id}" '{entity_id: $entity_id}')" 2>/dev/null)
+
+    if [[ -z "${call_response}" ]]; then
+        EXEC_MESSAGE="Geen reactie van Home Assistant Core bij het starten van de update"
+        return 1
+    fi
+
+    local waited=0 timeout=1800 state installed latest
+    while (( waited < timeout )); do
+        local entity_info
+        entity_info=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+            "${SUPERVISOR_API}/core/api/states/${entity_id}" 2>/dev/null)
+        state=$(echo "${entity_info}" | jq -r '.state // "unknown"')
+        installed=$(echo "${entity_info}" | jq -r '.attributes.installed_version // "onbekend"')
+        latest=$(echo "${entity_info}" | jq -r '.attributes.latest_version // "onbekend"')
+
+        if [[ "${state}" != "on" ]]; then
+            EXEC_MESSAGE="${entity_id} bijgewerkt naar versie ${installed}"
+            return 0
+        fi
+
+        report_heartbeat "${command_id}" "Bezig met bijwerken van ${entity_id}... (${waited}s)"
+        sleep "${HEARTBEAT_INTERVAL}"
+        waited=$(( waited + HEARTBEAT_INTERVAL ))
+    done
+
+    EXEC_MESSAGE="Time-out bij wachten op update van ${entity_id} (nog op versie ${installed}, nieuwste is ${latest})"
+    return 1
+}
+
+# Voer één commando uit via de Supervisor API. Retourneert 0 bij succes.
+# Zet EXEC_MESSAGE met een omschrijving. Draait de aanroep op de achtergrond en
+# stuurt onderweg heartbeats, zodat een langdurige actie (bv. een update) niet
+# stil op "Bezig" blijft staan zonder voortgang.
 execute_command() {
-    local command_id="${1}" action="${2}" slug="${3}" uuid="${4}" endpoint=""
+    local command_id="${1}" action="${2}" slug="${3}" uuid="${4}" entity_id="${5}" endpoint=""
 
     if [[ "${action}" == "create_backup" ]]; then
         execute_backup_now "${command_id}"
+        return $?
+    fi
+
+    if [[ "${action}" == "update_entity" ]]; then
+        execute_entity_update "${command_id}" "${entity_id}"
         return $?
     fi
 
@@ -348,8 +404,9 @@ for _ in 1 2 3 4 5; do
     ACTION=$(echo "${PULL_RESPONSE}" | jq -r '.command.action // empty')
     SLUG=$(echo "${PULL_RESPONSE}" | jq -r '.command.params.slug // empty')
     SUGGESTION_UUID=$(echo "${PULL_RESPONSE}" | jq -r '.command.params.uuid // empty')
+    ENTITY_ID=$(echo "${PULL_RESPONSE}" | jq -r '.command.params.entity_id // empty')
 
-    bashio::log.info "HA Commands: commando ${COMMAND_ID} ontvangen: ${ACTION} ${SLUG}${SUGGESTION_UUID}"
+    bashio::log.info "HA Commands: commando ${COMMAND_ID} ontvangen: ${ACTION} ${SLUG}${SUGGESTION_UUID}${ENTITY_ID}"
 
     EXEC_MESSAGE=""
 
@@ -367,7 +424,7 @@ for _ in 1 2 3 4 5; do
     fi
 
     # 3) Actie uitvoeren
-    if execute_command "${COMMAND_ID}" "${ACTION}" "${SLUG}" "${SUGGESTION_UUID}"; then
+    if execute_command "${COMMAND_ID}" "${ACTION}" "${SLUG}" "${SUGGESTION_UUID}" "${ENTITY_ID}"; then
         EXEC_SUCCESS=true
         bashio::log.info "HA Commands: commando ${COMMAND_ID} (${ACTION}) succesvol"
     else

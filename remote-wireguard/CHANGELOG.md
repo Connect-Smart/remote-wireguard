@@ -1,3 +1,9 @@
+## 1.5.43
+
+- `ha-status`: haalt nu ook alle overige `update.*`-entiteiten uit Home Assistant zelf op (HACS, integraties, apparaten zoals ESPHome, enz.) via de Core API en stuurt die mee als `updates.other` — Core/OS/Supervisor/add-on-updates worden uitgesloten om dubbele meldingen te voorkomen.
+- `ha-commands`: nieuwe actie `update_entity` — roept `update.install` aan via de Core-service-API voor een losse update-entiteit en wacht (met heartbeats) tot de entiteit niet meer 'update beschikbaar' aangeeft, in plaats van de service-aanroep zelf als bewijs van succes te nemen.
+- Portal: HA Status-modal toont deze overige updates nu ook met een "Update nu"-knop.
+
 ## 1.5.42
 
 - `ha-commands`: een update (core/os/supervisor/add-on) wordt niet meer als geslaagd beschouwd op basis van alleen Supervisor's initiële "ok" bij de update-aanroep. Na afloop wordt de info van het bijgewerkte onderdeel opnieuw opgehaald (`verify_update_applied`): staat er nog een update open, of draait een bijgewerkte add-on niet gewoon weer ("started"), dan wordt het commando alsnog als mislukt teruggemeld met een duidelijke reden i.p.v. een vals-positieve "succesvol uitgevoerd".
