@@ -33,7 +33,10 @@ ADDON_VERSION=$(bashio::addon.version 2>/dev/null || echo "")
 
 # Staat backup (ha-backup service) aan of uit? Zo weet de portal dit zonder dat
 # een admin het los moet instellen — dezelfde config die create_backup.sh gebruikt.
-BACKUP_ENABLED_RAW=$(get_config_value "backup_enabled" "true")
+BACKUP_ENABLED_RAW="true"
+if bashio::config.has_value "backup.enabled"; then
+    BACKUP_ENABLED_RAW=$(bashio::config "backup.enabled")
+fi
 BACKUP_ENABLED="true"
 if [[ "${BACKUP_ENABLED_RAW,,}" == "false" ]]; then
     BACKUP_ENABLED="false"

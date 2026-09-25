@@ -27,7 +27,10 @@ get_config_value() {
 PORTAL_URL=$(get_config_value "portal_url" "https://remote.connect-smart.nl")
 ENROLLMENT_TOKEN=$(bashio::config "enrollment_token")
 VERIFY_SSL=$(get_config_value "verify_ssl" "true")
-BACKUP_RETAIN=$(get_config_value "backup_retain" "3")
+BACKUP_RETAIN="3"
+if bashio::config.has_value "backup.retain"; then
+    BACKUP_RETAIN=$(bashio::config "backup.retain")
+fi
 ADDON_VERSION=$(bashio::addon.version 2>/dev/null || echo "")
 
 # Trim whitespace

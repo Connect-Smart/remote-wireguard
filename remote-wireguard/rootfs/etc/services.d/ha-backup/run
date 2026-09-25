@@ -10,10 +10,8 @@ RETRY_INTERVAL=1800  # 30 minuten tussen retries
 
 # Controleer of backup ingeschakeld is
 BACKUP_ENABLED="true"
-if bashio::config.has_value "backup_enabled"; then
-    BACKUP_ENABLED=$(bashio::config "backup_enabled")
-elif bashio::config.has_value "advanced.backup_enabled"; then
-    BACKUP_ENABLED=$(bashio::config "advanced.backup_enabled")
+if bashio::config.has_value "backup.enabled"; then
+    BACKUP_ENABLED=$(bashio::config "backup.enabled")
 fi
 
 if [[ "${BACKUP_ENABLED,,}" != "true" ]]; then
@@ -23,8 +21,8 @@ fi
 
 # Tijdstip ophalen (formaat HH:MM)
 BACKUP_TIME="${DEFAULT_BACKUP_TIME}"
-if bashio::config.has_value "backup_time"; then
-    BACKUP_TIME=$(bashio::config "backup_time")
+if bashio::config.has_value "backup.time"; then
+    BACKUP_TIME=$(bashio::config "backup.time")
 fi
 if ! [[ "${BACKUP_TIME}" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
     bashio::log.warning "HA Backup: ongeldige backup_time '${BACKUP_TIME}', standaard ${DEFAULT_BACKUP_TIME} wordt gebruikt"
