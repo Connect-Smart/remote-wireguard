@@ -16,7 +16,6 @@ hassio_api: true
 homeassistant_api: true
 privileged:
   - NET_ADMIN
-  - SYS_MODULE
 devices:
   - /dev/net/tun
 map:
