@@ -53,6 +53,12 @@ Standaard is de backup ingeschakeld met een interval van 24 uur. Dit is instelba
 
 Bij onvoldoende schijfruimte of een mislukte upload verstuurt de add-on automatisch een foutmelding naar de portal.
 
+De add-on meldt deze `backup_enabled`-instelling ook mee in de periodieke statusmelding, zodat
+de portal automatisch weet of backups voor deze client bewust uitstaan — een admin hoeft dit dan
+niet nog eens los in de portal in te stellen. Daarnaast kan een admin vanuit de Backups-weergave
+in de portal ("Backup nu") ook op elk moment een handmatige backup laten maken en uploaden,
+zonder op het vaste interval te wachten.
+
 ### Updates op afstand starten
 
 Zodra `hassio_role: manager` actief is (standaard voor deze add-on), pollt de add-on elke 30 seconden

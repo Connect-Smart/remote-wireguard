@@ -31,6 +31,14 @@ ENROLLMENT_TOKEN=$(bashio::config "enrollment_token")
 VERIFY_SSL=$(get_config_value "verify_ssl" "true")
 ADDON_VERSION=$(bashio::addon.version 2>/dev/null || echo "")
 
+# Staat backup (ha-backup service) aan of uit? Zo weet de portal dit zonder dat
+# een admin het los moet instellen — dezelfde config die create_backup.sh gebruikt.
+BACKUP_ENABLED_RAW=$(get_config_value "backup_enabled" "true")
+BACKUP_ENABLED="true"
+if [[ "${BACKUP_ENABLED_RAW,,}" == "false" ]]; then
+    BACKUP_ENABLED="false"
+fi
+
 # Trim whitespace
 PORTAL_URL=$(echo "${PORTAL_URL}" | xargs)
 ENROLLMENT_TOKEN=$(echo "${ENROLLMENT_TOKEN}" | xargs)
@@ -135,6 +143,7 @@ PAYLOAD=$(jq -n \
   --argjson issues "${ISSUES}" \
   --argjson suggestions "${SUGGESTIONS}" \
   --argjson unhealthy "${UNHEALTHY}" \
+  --argjson backup_enabled "${BACKUP_ENABLED}" \
   '{
     updates: {
       core: (if $core_update then {current: $core_version, latest: $core_latest} else null end),
@@ -147,6 +156,7 @@ PAYLOAD=$(jq -n \
       suggestions: $suggestions,
       unhealthy: $unhealthy
     },
+    backup_enabled: $backup_enabled,
     timestamp: now
   }')
 

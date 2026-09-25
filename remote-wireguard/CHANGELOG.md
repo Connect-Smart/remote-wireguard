@@ -1,3 +1,9 @@
+## 1.5.41
+
+- `ha-status`: rapporteert nu ook de eigen `backup_enabled`-configuratie mee in de status-push, zodat de portal automatisch weet of backups voor deze client bewust uitstaan i.p.v. dat een admin dit los moet instellen (en uit sync kan raken).
+- `ha-commands`: nieuwe actie `create_backup` — roept het bestaande `ha-backup/create_backup.sh` rechtstreeks aan (backup aanmaken, uploaden naar de portal, oude backups opruimen), zodat een admin vanuit de portal met één klik een handmatige backup kan starten. Inclusief heartbeats en de schijfruimte-check vooraf.
+- Portal: uploads worden nu volledig doorgelezen en geweigerd als het tar-archief onvolledig/corrupt is (bv. door een afgebroken netwerkverbinding) — voorkomt dat een kapotte upload een goede oudere backup vervangt vóórdat de retentie-opruiming die alsnog weggooit.
+
 ## 1.5.40
 
 - `ha-commands`: stuurt tijdens een lange actie (update of `resolve_suggestion`) elke 20 seconden een heartbeat naar de portal (`POST /api/ha-commands/<id>/heartbeat`), zodat "Bezig" voortgang toont i.p.v. stil te blijven staan.

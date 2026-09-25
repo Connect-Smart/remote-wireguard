@@ -153,8 +153,47 @@ find_restart_suggestion() {
 # Zet EXEC_MESSAGE met een omschrijving. Draait de aanroep op de achtergrond en
 # stuurt onderweg heartbeats, zodat een langdurige actie (bv. een update) niet
 # stil op "Bezig" blijft staan zonder voortgang.
+# Voert een backup uit door het bestaande ha-backup script rechtstreeks aan te
+# roepen — dezelfde logica als de geplande backup (aanmaken, uploaden naar de
+# portal, oude backups opruimen), nu op verzoek vanuit de portal. Draait op de
+# achtergrond zodat we ondertussen heartbeats kunnen sturen.
+execute_backup_now() {
+    local command_id="${1}"
+    local script="/etc/services.d/ha-backup/create_backup.sh"
+
+    if [[ ! -x "${script}" ]]; then
+        EXEC_MESSAGE="Backup-script niet gevonden of niet uitvoerbaar (${script})"
+        return 1
+    fi
+
+    "${script}" &
+    local backup_pid=$! elapsed=0
+    while kill -0 "${backup_pid}" 2>/dev/null; do
+        sleep "${HEARTBEAT_INTERVAL}"
+        elapsed=$(( elapsed + HEARTBEAT_INTERVAL ))
+        if kill -0 "${backup_pid}" 2>/dev/null; then
+            report_heartbeat "${command_id}" "Bezig met backup aanmaken en uploaden... (${elapsed}s)"
+        fi
+    done
+    wait "${backup_pid}"
+    local exit_code=$?
+
+    if [[ ${exit_code} -eq 0 ]]; then
+        EXEC_MESSAGE="Backup aangemaakt en geüpload naar de portal"
+        return 0
+    fi
+
+    EXEC_MESSAGE="Backup-script eindigde met foutcode ${exit_code} — zie add-on log en meldingen voor details"
+    return 1
+}
+
 execute_command() {
     local command_id="${1}" action="${2}" slug="${3}" uuid="${4}" endpoint=""
+
+    if [[ "${action}" == "create_backup" ]]; then
+        execute_backup_now "${command_id}"
+        return $?
+    fi
 
     case "${action}" in
         update_core)       endpoint="${SUPERVISOR_API}/core/update" ;;
@@ -224,8 +263,9 @@ execute_command() {
 
 # Deze acties raken Core (rechtstreeks of via een herstart) en verdienen dus
 # zowel een schijfruimte-check vooraf als een connectiviteitscheck achteraf.
+# create_backup heeft alleen de schijfruimte-check nodig (geen Core-restart).
 needs_disk_check() {
-    [[ "${1}" == update_* ]]
+    [[ "${1}" == update_* || "${1}" == "create_backup" ]]
 }
 needs_connectivity_check() {
     [[ "${1}" == update_* || "${1}" == "resolve_suggestion" ]]
