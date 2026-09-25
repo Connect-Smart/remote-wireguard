@@ -1,3 +1,9 @@
+## 1.5.35
+
+- Nieuwe `ha-commands` service toegevoegd: pollt elke 30 seconden `GET /api/ha-commands/pull` op de portal voor openstaande update-commando's.
+- Ondersteunde acties: `update_core`, `update_os`, `update_supervisor`, `update_addon` — uitgevoerd via de Supervisor API (hetzelfde mechanisme als het `ha` CLI commando).
+- Resultaat wordt teruggemeld via `POST /api/ha-commands/<id>/result`, zodat een admin in de portal Home Assistant-updates op afstand kan starten en de voortgang kan volgen.
+
 ## 1.5.15
 
 - Foutmeldingen bij mislukte backup worden nu als notificatie naar de portal gestuurd via `POST /api/notifications/push` (levels: `error`, `warning`, `info`).

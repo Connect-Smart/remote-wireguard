@@ -1,0 +1,17 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Home Assistant Third Party Add-on: WireGuard Client
+# HA Commands service - polls de Remote Portal voor openstaande update-commando's
+# ==============================================================================
+
+bashio::log.info "HA Commands poller gestart (interval: 30 seconden)"
+
+SCRIPT="/etc/services.d/ha-commands/poll_and_execute.sh"
+
+# Wacht 30 seconden na start voordat de eerste poll gebeurt
+sleep 30
+
+while true; do
+    ${SCRIPT}
+    sleep 30
+done

@@ -53,6 +53,20 @@ Standaard is de backup ingeschakeld met een interval van 24 uur. Dit is instelba
 
 Bij onvoldoende schijfruimte of een mislukte upload verstuurt de add-on automatisch een foutmelding naar de portal.
 
+### Updates op afstand starten
+
+Zodra `hassio_role: manager` actief is (standaard voor deze add-on), pollt de add-on elke 30 seconden
+de portal op openstaande update-opdrachten. Een beheerder kan in Remote Portal, vanuit de HA Status-weergave
+van een client, met één klik een update starten voor:
+
+- Home Assistant Core
+- Home Assistant OS
+- Supervisor
+- een individuele add-on
+
+De update wordt uitgevoerd via de Supervisor API (hetzelfde mechanisme dat het `ha` CLI commando
+intern gebruikt) en het resultaat verschijnt na afloop als notificatie bij de client in de portal.
+
 ### Tips
 
 - Verifieer na de eerste start in het logboek dat de juiste clientnaam en externe URL worden gemeld.
