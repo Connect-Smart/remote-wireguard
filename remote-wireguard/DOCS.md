@@ -77,9 +77,13 @@ Ingebouwde veiligheidschecks rond een update:
 - **Connectiviteitscheck**: na de update (en na een eventuele herstart) wordt gecontroleerd of alle
   devices/entiteiten die ervoor beschikbaar waren, dat erna nog steeds zijn. Zo niet, dan verschijnt
   dat in de melding bij de client.
-- **Time-out**: komt er geen resultaat binnen (bv. add-on zelf onbereikbaar tijdens een herstart),
-  dan markeert de portal het commando na verloop van tijd automatisch als mislukt zodat een stille
-  storing nooit onopgemerkt blijft.
+- **Voortgang (heartbeats)**: tijdens een lange actie stuurt de add-on elke 20 seconden een
+  tussentijds signaal naar de portal, zodat "Bezig" niet stil blijft staan.
+- **Time-out**: komt er 5 minuten geen heartbeat of resultaat binnen (bv. omdat een host-herstart
+  deze container zelf onderbreekt vóórdat hij kon terugmelden), dan markeert de portal het commando
+  automatisch als mislukt zodat een stille storing nooit onopgemerkt blijft. Weet je zeker dat de
+  actie eigenlijk wél gelukt is, dan kan een vastgelopen melding ook met één klik handmatig als
+  "Afgehandeld" worden gemarkeerd in de portal.
 
 ### Tips
 

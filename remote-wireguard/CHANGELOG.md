@@ -1,3 +1,9 @@
+## 1.5.40
+
+- `ha-commands`: stuurt tijdens een lange actie (update of `resolve_suggestion`) elke 20 seconden een heartbeat naar de portal (`POST /api/ha-commands/<id>/heartbeat`), zodat "Bezig" voortgang toont i.p.v. stil te blijven staan.
+- Portal: een `running`-commando zonder heartbeat gedurende 5 minuten wordt automatisch als mislukt gemarkeerd (was 50 minuten, alleen gebaseerd op het oppakken van het commando) — dit lost het scenario op waarbij een host-herstart deze container onderbreekt vóórdat hij het eindresultaat kon terugmelden, en de melding daardoor eeuwig op "Bezig" bleef staan.
+- Portal: nieuwe knop "Afhandelen" om een vastgelopen commando handmatig als afgehandeld te markeren.
+
 ## 1.5.39
 
 - `ha-commands`: schijfruimte-check vooraf via `GET /host/info` — een update wordt geweigerd (en gemeld als mislukt) als er minder dan `advanced.min_disk_free_gb` (standaard 2GB) vrije schijfruimte is.

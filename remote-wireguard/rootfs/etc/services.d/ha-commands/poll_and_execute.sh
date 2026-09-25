@@ -10,6 +10,11 @@
 #    gemeld aan de portal zodat een admin de herstart met één klik kan starten
 #  - Connectiviteitscontrole na de update: welke devices/entiteiten die vóór
 #    de update beschikbaar waren, zijn dat na de update niet meer?
+#  - Heartbeats tijdens een lange actie: de portal ziet zo tussentijds voortgang
+#    i.p.v. alleen "Bezig" zonder updates, en beschouwt het commando als
+#    vastgelopen (i.p.v. eeuwig 'Bezig') zodra de heartbeats stoppen — bv. omdat
+#    een host-herstart deze container zelf onderbreekt vóórdat hij het
+#    eindresultaat kon terugmelden.
 # ==============================================================================
 
 set -o pipefail
@@ -62,6 +67,8 @@ else
     CURL_OPTS=""
 fi
 
+HEARTBEAT_INTERVAL=20
+
 report_result() {
     local command_id="${1}"
     local status="${2}"        # done | error | restart_required
@@ -73,6 +80,19 @@ report_result() {
         '{status: $status, message: $message, data: $data}')
 
     curl -s ${CURL_OPTS} -X POST "${PORTAL_URL}/api/ha-commands/${command_id}/result" \
+        -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -H "X-Addon-Version: ${ADDON_VERSION}" \
+        -d "${payload}" > /dev/null 2>&1
+}
+
+# Meldt tussentijds dat een commando nog bezig is, zodat de portal het niet als
+# vastgelopen beschouwt en de voortgang zichtbaar is i.p.v. alleen "Bezig".
+report_heartbeat() {
+    local command_id="${1}" message="${2}"
+    local payload
+    payload=$(jq -n --arg message "${message}" '{message: $message}')
+    curl -s ${CURL_OPTS} -X POST "${PORTAL_URL}/api/ha-commands/${command_id}/heartbeat" \
         -H "Authorization: Bearer ${ENROLLMENT_TOKEN}" \
         -H "Content-Type: application/json" \
         -H "X-Addon-Version: ${ADDON_VERSION}" \
@@ -106,16 +126,18 @@ fetch_unavailable_entities() {
 }
 
 # Wacht tot Home Assistant Core weer 'running' is (na een restart door de update).
+# Stuurt onderweg heartbeats zodat "Bezig" niet stil blijft staan.
 wait_for_core_running() {
-    local timeout="${1:-300}" waited=0 state
+    local command_id="${1}" timeout="${2:-300}" waited=0 state
     while (( waited < timeout )); do
         state=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${SUPERVISOR_API}/core/info" 2>/dev/null \
             | jq -r '.data.state // empty')
         if [[ "${state}" == "running" ]]; then
             return 0
         fi
-        sleep 10
-        waited=$(( waited + 10 ))
+        report_heartbeat "${command_id}" "Wachten tot Home Assistant weer online is... (${waited}s)"
+        sleep "${HEARTBEAT_INTERVAL}"
+        waited=$(( waited + HEARTBEAT_INTERVAL ))
     done
     return 1
 }
@@ -128,9 +150,11 @@ find_restart_suggestion() {
 }
 
 # Voer één commando uit via de Supervisor API. Retourneert 0 bij succes.
-# Zet EXEC_MESSAGE met een omschrijving.
+# Zet EXEC_MESSAGE met een omschrijving. Draait de aanroep op de achtergrond en
+# stuurt onderweg heartbeats, zodat een langdurige actie (bv. een update) niet
+# stil op "Bezig" blijft staan zonder voortgang.
 execute_command() {
-    local action="${1}" slug="${2}" uuid="${3}" endpoint=""
+    local command_id="${1}" action="${2}" slug="${3}" uuid="${4}" endpoint=""
 
     case "${action}" in
         update_core)       endpoint="${SUPERVISOR_API}/core/update" ;;
@@ -159,12 +183,28 @@ execute_command() {
     bashio::log.info "HA Commands: uitvoeren '${action}' via ${endpoint}..."
 
     # Updates (vooral core/os) kunnen enkele minuten duren; Supervisor API antwoordt
-    # pas als de actie klaar is. Geef ruim de tijd.
-    local response result
-    response=$(curl -s --max-time 1800 \
+    # pas als de actie klaar is. Draai de aanroep op de achtergrond zodat we
+    # ondertussen heartbeats kunnen sturen i.p.v. blind te wachten.
+    local tmp_response result elapsed=0
+    tmp_response=$(mktemp)
+    curl -s --max-time 1800 \
         -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
         -H "Content-Type: application/json" \
-        -X POST "${endpoint}" 2>/dev/null)
+        -X POST "${endpoint}" -o "${tmp_response}" 2>/dev/null &
+    local curl_pid=$!
+
+    while kill -0 "${curl_pid}" 2>/dev/null; do
+        sleep "${HEARTBEAT_INTERVAL}"
+        elapsed=$(( elapsed + HEARTBEAT_INTERVAL ))
+        if kill -0 "${curl_pid}" 2>/dev/null; then
+            report_heartbeat "${command_id}" "Bezig met ${action}... (${elapsed}s)"
+        fi
+    done
+    wait "${curl_pid}" 2>/dev/null
+
+    local response
+    response=$(cat "${tmp_response}" 2>/dev/null)
+    rm -f "${tmp_response}"
 
     if [[ -z "${response}" ]]; then
         EXEC_MESSAGE="Geen reactie van Supervisor API"
@@ -230,7 +270,7 @@ for _ in 1 2 3 4 5; do
     fi
 
     # 3) Actie uitvoeren
-    if execute_command "${ACTION}" "${SLUG}" "${SUGGESTION_UUID}"; then
+    if execute_command "${COMMAND_ID}" "${ACTION}" "${SLUG}" "${SUGGESTION_UUID}"; then
         EXEC_SUCCESS=true
         bashio::log.info "HA Commands: commando ${COMMAND_ID} (${ACTION}) succesvol"
     else
@@ -241,7 +281,7 @@ for _ in 1 2 3 4 5; do
     # 4) Connectiviteit herchecken (wacht tot Core weer up is, vergelijk dan)
     EXEC_DATA="null"
     if needs_connectivity_check "${ACTION}"; then
-        if ! wait_for_core_running 300; then
+        if ! wait_for_core_running "${COMMAND_ID}" 300; then
             bashio::log.warning "HA Commands: Core kwam niet binnen 5 minuten terug na commando ${COMMAND_ID}"
         fi
         AFTER_UNAVAILABLE=$(fetch_unavailable_entities)
