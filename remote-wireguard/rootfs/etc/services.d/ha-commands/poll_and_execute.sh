@@ -10,6 +10,12 @@
 #    gemeld aan de portal zodat een admin de herstart met één klik kan starten
 #  - Connectiviteitscontrole na de update: welke devices/entiteiten die vóór
 #    de update beschikbaar waren, zijn dat na de update niet meer?
+#  - Verificatie dat een update ook echt is toegepast: Supervisor's "ok" bij
+#    de update-aanroep betekent alleen dat die aanroep gelukt is, niet dat de
+#    update ook echt is doorgevoerd. Na afloop wordt de info van het bijgewerkte
+#    onderdeel opnieuw opgehaald; staat er nog een update open, of (bij een
+#    add-on) draait die niet gewoon weer, dan wordt de actie alsnog als
+#    mislukt teruggemeld i.p.v. blind op het eerste "ok" te vertrouwen.
 #  - Heartbeats tijdens een lange actie: de portal ziet zo tussentijds voortgang
 #    i.p.v. alleen "Bezig" zonder updates, en beschouwt het commando als
 #    vastgelopen (i.p.v. eeuwig 'Bezig') zodra de heartbeats stoppen — bv. omdat
@@ -253,12 +259,63 @@ execute_command() {
     result=$(echo "${response}" | jq -r '.result // empty')
 
     if [[ "${result}" == "ok" ]]; then
+        if [[ "${action}" == update_* ]]; then
+            # Supervisor's "ok" betekent alleen dat de aanroep zelf gelukt is, niet dat de
+            # update ook echt is toegepast. Vraag daarom de info opnieuw op en bevestig dat
+            # er geen update meer openstaat (en dat een add-on ook echt weer draait) vóórdat
+            # we dit als geslaagd terugmelden.
+            sleep 5
+            verify_update_applied "${action}" "${slug}"
+            return $?
+        fi
         EXEC_MESSAGE="${action} succesvol uitgevoerd"
         return 0
     fi
 
     EXEC_MESSAGE=$(echo "${response}" | jq -r '.message // "onbekende fout"')
     return 1
+}
+
+# Controleert na een gemelde geslaagde update of die ook echt is toegepast:
+# vraagt de info van het bijgewerkte onderdeel opnieuw op bij Supervisor en
+# faalt de actie alsnog als er nog steeds een update openstaat, of — bij een
+# add-on — als deze niet gewoon weer draait. Zet EXEC_MESSAGE met de bevinding.
+verify_update_applied() {
+    local action="${1}" slug="${2}" info_endpoint=""
+
+    case "${action}" in
+        update_core)       info_endpoint="${SUPERVISOR_API}/core/info" ;;
+        update_os)         info_endpoint="${SUPERVISOR_API}/os/info" ;;
+        update_supervisor) info_endpoint="${SUPERVISOR_API}/supervisor/info" ;;
+        update_addon)      info_endpoint="${SUPERVISOR_API}/addons/${slug}/info" ;;
+        *)
+            EXEC_MESSAGE="${action} succesvol uitgevoerd"
+            return 0
+            ;;
+    esac
+
+    local info version update_available state
+    info=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${info_endpoint}" 2>/dev/null)
+    version=$(echo "${info}" | jq -r '.data.version // "onbekend"')
+    update_available=$(echo "${info}" | jq -r '.data.update_available // false')
+
+    if [[ "${update_available}" == "true" ]]; then
+        EXEC_MESSAGE="Update gemeld als geslaagd, maar Supervisor geeft nog steeds een update aan (huidige versie: ${version}) — controleer handmatig"
+        return 1
+    fi
+
+    if [[ "${action}" == "update_addon" ]]; then
+        state=$(echo "${info}" | jq -r '.data.state // "onbekend"')
+        if [[ "${state}" != "started" ]]; then
+            EXEC_MESSAGE="Bijgewerkt naar versie ${version}, maar add-on ${slug} staat niet actief (status: ${state}) — controleer handmatig"
+            return 1
+        fi
+        EXEC_MESSAGE="Add-on ${slug} bijgewerkt naar versie ${version} en actief geverifieerd"
+        return 0
+    fi
+
+    EXEC_MESSAGE="Bijgewerkt naar versie ${version} en geverifieerd (geen update meer openstaand)"
+    return 0
 }
 
 # Deze acties raken Core (rechtstreeks of via een herstart) en verdienen dus

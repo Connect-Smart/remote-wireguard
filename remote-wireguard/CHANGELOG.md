@@ -1,3 +1,7 @@
+## 1.5.42
+
+- `ha-commands`: een update (core/os/supervisor/add-on) wordt niet meer als geslaagd beschouwd op basis van alleen Supervisor's initiële "ok" bij de update-aanroep. Na afloop wordt de info van het bijgewerkte onderdeel opnieuw opgehaald (`verify_update_applied`): staat er nog een update open, of draait een bijgewerkte add-on niet gewoon weer ("started"), dan wordt het commando alsnog als mislukt teruggemeld met een duidelijke reden i.p.v. een vals-positieve "succesvol uitgevoerd".
+
 ## 1.5.41
 
 - `ha-status`: rapporteert nu ook de eigen `backup_enabled`-configuratie mee in de status-push, zodat de portal automatisch weet of backups voor deze client bewust uitstaan i.p.v. dat een admin dit los moet instellen (en uit sync kan raken).
